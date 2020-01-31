@@ -5,7 +5,7 @@
 import pytest
 
 
-from enlil import enlil
+# from enlil import Enlil
 
 
 @pytest.fixture
