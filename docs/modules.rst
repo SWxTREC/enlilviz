@@ -1,7 +1,7 @@
-enlil
-=====
+enlilviz
+========
 
 .. toctree::
    :maxdepth: 4
 
-   enlil
+   enlilviz

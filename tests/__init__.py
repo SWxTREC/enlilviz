@@ -1,1 +1,1 @@
-"""Unit test package for enlil."""
+"""Unit test package for enlilviz."""

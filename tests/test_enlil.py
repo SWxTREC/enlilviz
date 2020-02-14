@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-"""Tests for `enlil` package."""
+"""Tests for `enlilviz` package."""
 
 import pytest
 
 
-# from enlil import Enlil
+# from enlilviz import Enlil
 
 
 @pytest.fixture

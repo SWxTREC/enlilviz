@@ -57,15 +57,15 @@ test-all: ## run tests on every Python version with tox
 	tox
 
 coverage: ## check code coverage quickly with the default Python
-	coverage run --source enlil -m pytest
+	coverage run --source enlilviz -m pytest
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/enlil.rst
+	rm -f docs/enlilviz.rst
 	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ enlil
+	sphinx-apidoc -o docs/ enlilviz
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html

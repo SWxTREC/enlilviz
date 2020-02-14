@@ -2,6 +2,6 @@
 Usage
 =====
 
-To use enlil in a project::
+To use enlilviz in a project::
 
-    import enlil
+    import enlilviz

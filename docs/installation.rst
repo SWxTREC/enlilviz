@@ -8,13 +8,13 @@ Installation
 Stable release
 --------------
 
-To install enlil, run this command in your terminal:
+To install enlilviz, run this command in your terminal:
 
 .. code-block:: console
 
-    $ pip install enlil
+    $ pip install enlilviz
 
-This is the preferred method to install enlil, as it will always install the most recent stable release.
+This is the preferred method to install enlilviz, as it will always install the most recent stable release.
 
 If you don't have `pip`_ installed, this `Python installation guide`_ can guide
 you through the process.
@@ -26,19 +26,19 @@ you through the process.
 From sources
 ------------
 
-The sources for enlil can be downloaded from the `Github repo`_.
+The sources for enlilviz can be downloaded from the `Github repo`_.
 
 You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/SWxTREC/enlil
+    $ git clone git://github.com/SWxTREC/enlilviz
 
 Or download the `tarball`_:
 
 .. code-block:: console
 
-    $ curl -OJL https://github.com/SWxTREC/enlil/tarball/master
+    $ curl -OJL https://github.com/SWxTREC/enlilviz/tarball/master
 
 Once you have a copy of the source, you can install it with:
 
@@ -47,5 +47,5 @@ Once you have a copy of the source, you can install it with:
     $ python setup.py install
 
 
-.. _Github repo: https://github.com/SWxTREC/enlil
-.. _tarball: https://github.com/SWxTREC/enlil/tarball/master
+.. _Github repo: https://github.com/SWxTREC/enlilviz
+.. _tarball: https://github.com/SWxTREC/enlilviz/tarball/master

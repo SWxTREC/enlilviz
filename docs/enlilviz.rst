@@ -1,5 +1,5 @@
 enlilviz package
-=============
+================
 
 Subpackages
 -----------
@@ -12,7 +12,7 @@ Submodules
 ----------
 
 enlilviz.enlil module
-------------------
+---------------------
 
 .. automodule:: enlilviz.enlil
    :members:
@@ -20,7 +20,7 @@ enlilviz.enlil module
    :show-inheritance:
 
 enlilviz.io module
----------------
+------------------
 
 .. automodule:: enlilviz.io
    :members:

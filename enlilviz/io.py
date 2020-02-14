@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from enlil.enlil import Enlil
+from enlilviz.enlil import Enlil
 
 # Mass of hydrogen (kg)
 _m_hydrogen = 1.6735575e-27

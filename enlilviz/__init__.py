@@ -1,4 +1,4 @@
-"""Top-level package for enlil."""
+"""Top-level package for enlilviz."""
 
 __author__ = """Greg Lucas"""
 __email__ = 'greg.lucas@lasp.colorado.edu'

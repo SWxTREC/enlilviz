@@ -1,4 +1,4 @@
-Welcome to enlil's documentation!
+Welcome to enlilviz's documentation!
 ======================================
 
 .. toctree::
