@@ -1,20 +1,13 @@
 """Default forecast center figures."""
-
+import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-
-# Lots of extra imports for polar plotting to look nice
-from mpl_toolkits.axisartist import (Subplot, SubplotHost,
-                                     ParasiteAxesAuxTrans, floating_axes,
-                                     angle_helper)
-from mpl_toolkits.axisartist.grid_finder import FixedLocator, MaxNLocator, DictFormatter
-from mpl_toolkits.axisartist.grid_helper_curvelinear import GridHelperCurveLinear
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.projections import PolarAxes
-from matplotlib.transforms import Affine2D
-
-import numpy as np
+# A few extra imports to adjust the polar plots
+from mpl_toolkits.axisartist import floating_axes
+from mpl_toolkits.axisartist.grid_finder import FixedLocator
 
 mpl.style.use(['dark_background'])
 enlil_style = {
@@ -48,10 +41,9 @@ DEN_NORM = mpl.colors.Normalize(vmin=0, vmax=60)
 VEL_NORM = mpl.colors.Normalize(vmin=200, vmax=1600)
 
 # PolarAxes.PolarTransform takes radians.
-# However, we want our coordinate system in degrees
-tr_polar_deg = Affine2D().scale(np.pi/180., 1.) + PolarAxes.PolarTransform()
-# Here is just a radians transform
 tr_polar_rad = PolarAxes.PolarTransform()
+# Can also switch the transform to degrees...
+# tr_polar_deg = Affine2D().scale(np.pi/180., 1.) + PolarAxes.PolarTransform()
 
 LAT_MIN, LAT_MAX = -60, 60  # degrees
 R_MIN, R_MAX = 0.1, 1.7  # AU
@@ -75,7 +67,7 @@ class ForecasterPlot:
     def __init__(self, enlil_run):
         self.enlil_run = enlil_run
         # Store the current time index
-        self.index = 0
+        self._index = 0
 
         # Figure and axis creation
         self.fig = plt.figure(figsize=(20, 12.5), dpi=72,
@@ -85,8 +77,47 @@ class ForecasterPlot:
         # Dictionary to store plot variables
         self.plot_data = {}
 
+        # Initialize the grid and axes
         self.init_axes()
+        # Initialize all of the plots
         self.init_plots()
+
+    @property
+    def time(self):
+        """Current time of the plot."""
+        return self.enlil_run.times[self._index]
+
+    @property
+    def _time_string(self):
+        """String representation of the current time."""
+        t = str(self.time)[:16]
+        # Remove bad characters from the filename
+        for char in " :-":
+            t = t.replace(char, '')
+        # Floor the minutes to match previous work
+        t = t[:-2] + "00"
+        return t
+
+    @property
+    def _title_string(self):
+        """String representation of the time for titles."""
+        t = str(self.time)[:16].replace('T', ' ')
+        t = t[:-2] + "00"
+        return t
+
+    def __next__(self):
+        """Step ahead to the next time in the plot."""
+        self._index += 1
+        if self._index < len(self.enlil_run.times):
+            self.update_plot(self.time)
+            return self
+        # We have reached the end of the available times
+        raise StopIteration
+
+    def __iter__(self):
+        """Iterate over all of the times available."""
+        self._index = 0
+        return self
 
     def init_axes(self):
         """
@@ -225,7 +256,8 @@ class ForecasterPlot:
         # Planets and satellites
         sun, = ax.plot(0, 0, 'o', color='gold', markersize=10, zorder=2)
         # Coodinates to polar plot are: lon, r
-        earth, = ax.plot(np.deg2rad(earth_pos[2]), earth_pos[0], 'o', color='tab:green',
+        earth, = ax.plot(np.deg2rad(earth_pos[2]), earth_pos[0], 'o',
+                         color='tab:green',
                          markeredgecolor='k', markersize=10, zorder=2)
         stereo_a, = ax.plot(np.deg2rad(stereo_a_pos[2]), stereo_a_pos[0], 'o',
                             color='tab:red', markeredgecolor='k',
@@ -376,7 +408,7 @@ class ForecasterPlot:
         """Initialize the timeseries plots with data from the satellites."""
         run = self.enlil_run
         times = run.earth_times
-        t0 = run.times[0]
+        t0 = run.times[self._index]
 
         earth_den = run.get_satellite_data('Earth', 'den')
         stereo_a_den = run.get_satellite_data('STEREO_A', 'den')
@@ -439,9 +471,8 @@ class ForecasterPlot:
         ax = self.axes['title']
         # Turn all borders and spines off
         ax.axis('off')
-        t0 = self.enlil_run.times[0]
         self.plot_data['title'] = ax.text(0.5, 0.5,
-                                          str(t0).replace('T', ' ')[:16],
+                                          self._title_string,
                                           fontsize=30, color='gold',
                                           horizontalalignment='center',
                                           verticalalignment='center')
@@ -456,159 +487,128 @@ class ForecasterPlot:
         self._init_lat_r_plots()
         self._init_timeseries_plots()
         self._init_title()
-        print(self.enlil_run.ds)
-        return
-
-        # Update the plot with all of the proper data from the first time-step
-        # self.fig.canvas.draw()
-        # self.fig.set_constrained_layout(False)
-
-    def init_time_series(self):
-        times = self.enlil_run.earth_times
-        earth_den = self.enlil_run.get_satellite_data('Earth', 'density')
-        stereo_a_den = self.enlil_run.get_satellite_data('Earth', 'density')
-        stereo_b_den = self.enlil_run.get_satellite_data('Earth', 'density')
-        ax_earth = self.axes['den_time_earth']
-        ax_stereo_a = self.axes['den_time_stereo_a']
-        ax_stereo_b = self.axes['den_time_stereo_b']
-
-        ax_earth.plot(times, earth_den, c='tab:green')
-        ax_stereo_a.plot(times, stereo_a_den, c='tab:red')
-        ax_stereo_b.plot(times, stereo_b_den, c='tab:blue')
-        plt.setp(ax_earth.get_xticklabels(), visible=False)
-        plt.setp(ax_stereo_a.get_xticklabels(), visible=False)
-        ax_earth.set_xlim(self.enlil_run.times[0], self.enlil_run.times[-1])
-        ax_earth.xaxis.set_major_locator(mpl.dates.DayLocator())
-        ax_earth.xaxis.set_major_formatter(mpl.dates.DateFormatter("%d"))
-        ax_earth.set_title('Plasma Density (/cm$^3$)')
-
-        earth_vel = self.enlil_run.get_satellite_data('Earth', 'velocity')
-        stereo_a_vel = self.enlil_run.get_satellite_data('STEREO_A', 'velocity')
-        stereo_b_vel = self.enlil_run.get_satellite_data('STEREO_B', 'velocity')
-        ax_earth = self.axes['vel_time_earth']
-        ax_stereo_a = self.axes['vel_time_stereo_a']
-        ax_stereo_b = self.axes['vel_time_stereo_b']
-
-        ax_earth.plot(times, earth_vel, c='tab:green')
-        ax_stereo_a.plot(times, stereo_a_vel, c='tab:red')
-        ax_stereo_b.plot(times, stereo_b_vel, c='tab:blue')
-        plt.setp(ax_earth.get_xticklabels(), visible=False)
-        plt.setp(ax_stereo_a.get_xticklabels(), visible=False)
-        ax_earth.set_xlim(self.enlil_run.times[0], self.enlil_run.times[-1])
-        ax_earth.xaxis.set_major_locator(mpl.dates.DayLocator())
-        ax_earth.xaxis.set_major_formatter(mpl.dates.DateFormatter("%d"))
-        ax_earth.set_title('Radial Velocity (km/s)')
-
-    @property
-    def time(self):
-        """Current time for the plot."""
-        return self.enlil_run.times[self.index]
 
     def update_plot(self, time):
         """Updates the plot with data from the requested time."""
-        ds = self.enlil_run
-        r = self.enlil_run.r
-        lat = self.enlil_run.lat
+        run = self.enlil_run
+        r = run.r
+        lon = np.deg2rad(run.lon)
+        lat = np.deg2rad(run.lat)
 
-        
-        self.index = np.nonzero(time <= self.enlil_run.times)[0][0]
+        # Get satellite positions
+        earth_pos = run.get_satellite_position('Earth', time)
+        stereo_a_pos = run.get_satellite_position('STEREO_A', time)
+        stereo_b_pos = run.get_satellite_position('STEREO_B', time)
 
-        # ---------------
         # Longitude plots
         # ---------------
-        den_data = enlil.get_data('density', 'r', 'lon', time=time)
-        den_data = _cyclic_point(den_data.T).T
-        self.plot_data['den_lon_mesh'].set_array(den_data.flatten())
+        self.plot_data['den_lon_mesh'].set_array(
+            (run.get_slice('den', 'lat', time) * r**2).values.flatten())
+        self.plot_data['vel_lon_mesh'].set_array(
+            run.get_slice('vel', 'lat', time).values.flatten())
 
-        vel_data = enlil.get_data('velocity', 'r', 'lon', time=time)
-        vel_data = _cyclic_point(vel_data.T).T
-        self.plot_data['vel_lon_mesh'].set_array(vel_data.flatten())
+        # Get the polarity data
+        outer_pol = run.get_slice('pol', 'lat', time).sel({'r': r[-1]})
+        outer_pol = np.ma.masked_where(outer_pol <= 0, np.ones_like(outer_pol))
+        outer_pol *= r[-1]
+        inner_pol = run.get_slice('pol', 'lat', time).sel({'r': r[0]})
+        inner_pol = np.ma.masked_where(inner_pol <= 0, np.ones_like(inner_pol))
+        inner_pol *= r[0] - 0.025
+        self.plot_data['den_lon_arc_min'].set_data(lon, inner_pol)
+        self.plot_data['den_lon_arc_max'].set_data(lon, outer_pol)
+        self.plot_data['vel_lon_arc_min'].set_data(lon, inner_pol)
+        self.plot_data['vel_lon_arc_max'].set_data(lon, outer_pol)
 
-        pol_data = enlil.get_data('polarity', 'r', 'lon', time=time)
-        pol_data = _cyclic_point(pol_data.T).T
-        neg_polarity = pol_data < 0
-        arc_min_lons = np.ma.masked_where(neg_polarity[:, 0], lon)
-        arc_min_rs = np.ma.masked_array(np.ones(shape=lon.shape)*r[0], mask=arc_min_lons.mask)
-        arc_max_lons = np.ma.masked_where(neg_polarity[:, -1], lon)
-        arc_max_rs = np.ma.masked_array(np.ones(shape=lon.shape)*r[-1], mask=arc_max_lons.mask)
-        self.plot_data['den_lon_arc_min'].set_data(arc_min_lons, arc_min_rs)
-        self.plot_data['den_lon_arc_max'].set_data(arc_max_lons, arc_max_rs)
-        self.plot_data['vel_lon_arc_min'].set_data(arc_min_lons, arc_min_rs)
-        self.plot_data['vel_lon_arc_max'].set_data(arc_max_lons, arc_max_rs)
-
-        # --------------
         # Latitude plots
         # --------------
-        den_data = enlil.get_data('density', 'r', 'lat', time=time)
-        self.plot_data['den_lat_mesh'].set_array(den_data.values.flatten())
+        self.plot_data['den_lat_mesh'].set_array(
+            (run.get_slice('den', 'lon', time) * r**2).values.flatten())
+        self.plot_data['vel_lat_mesh'].set_array(
+            run.get_slice('vel', 'lon', time).values.flatten())
 
-        vel_data = enlil.get_data('velocity', 'r', 'lat', time=time)
-        self.plot_data['vel_lat_mesh'].set_array(vel_data.values.flatten())
+        # Get the polarity data
+        outer_pol = run.get_slice('pol', 'lon', time).sel({'r': r[-1]})
+        outer_pol = np.ma.masked_where(outer_pol <= 0, np.ones_like(outer_pol))
+        outer_pol *= r[-1]
+        inner_pol = run.get_slice('pol', 'lon', time).sel({'r': r[0]})
+        inner_pol = np.ma.masked_where(inner_pol <= 0, np.ones_like(inner_pol))
+        inner_pol *= r[0] - 0.025
+        self.plot_data['den_lat_arc_min'].set_data(lat, inner_pol)
+        self.plot_data['den_lat_arc_max'].set_data(lat, outer_pol)
+        self.plot_data['vel_lat_arc_min'].set_data(lat, inner_pol)
+        self.plot_data['vel_lat_arc_max'].set_data(lat, outer_pol)
 
-        pol_data = enlil.get_data('polarity', 'r', 'lat', time=time)
-        neg_polarity = pol_data < 0
-        arc_min_lats = np.ma.masked_where(neg_polarity[:, 0], lat)
-        arc_min_rs = np.ma.masked_array(np.ones(shape=lat.shape)*r[0], mask=arc_min_lats.mask)
-        arc_max_lats = np.ma.masked_where(neg_polarity[:, -1], lat)
-        arc_max_rs = np.ma.masked_array(np.ones(shape=lat.shape)*r[-1], mask=arc_min_lats.mask)
-        self.plot_data['den_lat_arc_min'].set_data(arc_min_lats, arc_min_rs)
-        self.plot_data['den_lat_arc_max'].set_data(arc_max_lats, arc_max_rs)
-        self.plot_data['vel_lat_arc_min'].set_data(arc_min_lats, arc_min_rs)
-        self.plot_data['vel_lat_arc_max'].set_data(arc_max_lats, arc_max_rs)
-
-        # -------------------
-        # Satellite positions
-        # -------------------
-        earth_pos = enlil.get_satellite_position('Earth', time)
-        stereo_a_pos = enlil.get_satellite_position('STEREO_A', time)
-        stereo_b_pos = enlil.get_satellite_position('STEREO_B', time)
-        # set_offsets for scatter marker positions (polar plot is: lon, r)
-        self.plot_data['den_lon_earth'].set_offsets([[earth_pos[2], earth_pos[0]]])
-        self.plot_data['den_lon_stereo_a'].set_offsets([[stereo_a_pos[2], stereo_a_pos[0]]])
-        self.plot_data['den_lon_stereo_b'].set_offsets([[stereo_b_pos[2], stereo_b_pos[0]]])
-        # Update latitude plot too
-        self.plot_data['den_lat_earth'].set_offsets([[earth_pos[1], earth_pos[0]]])
-        # Velocity plots
-        self.plot_data['vel_lon_earth'].set_offsets([[earth_pos[2], earth_pos[0]]])
-        self.plot_data['vel_lon_stereo_a'].set_offsets([[stereo_a_pos[2], stereo_a_pos[0]]])
-        self.plot_data['vel_lon_stereo_b'].set_offsets([[stereo_b_pos[2], stereo_b_pos[0]]])
-        # Update latitude plot too
-        self.plot_data['vel_lat_earth'].set_offsets([[earth_pos[1], earth_pos[0]]])
-
+        # Update Satellites
         # -----------------
+        # set_offsets for scatter marker positions (polar plot is: lon, r)
+        self.plot_data['den_lon_earth'].set_data(
+            np.deg2rad(earth_pos[2]), earth_pos[0])
+        self.plot_data['den_lon_stereo_a'].set_data(
+            np.deg2rad(stereo_a_pos[2]), stereo_a_pos[0])
+        self.plot_data['den_lon_stereo_b'].set_data(
+            np.deg2rad(stereo_b_pos[2]), stereo_b_pos[0])
+        # Update latitude plot too
+        self.plot_data['den_lat_earth'].set_data(
+            np.deg2rad(earth_pos[1]), earth_pos[0])
+        # Velocity plots
+        self.plot_data['vel_lon_earth'].set_data(
+            np.deg2rad(earth_pos[2]), earth_pos[0])
+        self.plot_data['vel_lon_stereo_a'].set_data(
+            np.deg2rad(stereo_a_pos[2]), stereo_a_pos[0])
+        self.plot_data['vel_lon_stereo_b'].set_data(
+            np.deg2rad(stereo_b_pos[2]), stereo_b_pos[0])
+        # Update latitude plot too
+        self.plot_data['vel_lat_earth'].set_data(
+            np.deg2rad(earth_pos[1]), earth_pos[0])
+
         # Time-series lines
         # -----------------
-        for line in [self.plot_data['den_time_earth'], self.plot_data['den_time_stereo_a'],
-                     self.plot_data['den_time_stereo_b'], self.plot_data['vel_time_earth'],
-                     self.plot_data['vel_time_stereo_a'], self.plot_data['vel_time_stereo_b']]:
+        for line in [self.plot_data['den_time_earth'],
+                     self.plot_data['den_time_stereo_a'],
+                     self.plot_data['den_time_stereo_b'],
+                     self.plot_data['vel_time_earth'],
+                     self.plot_data['vel_time_stereo_a'],
+                     self.plot_data['vel_time_stereo_b']]:
             line.set_xdata(time)
 
         # Title
-        self.plot_data['title'].set_text(str(self.time).replace('T', ' ')[:16])
+        self.plot_data['title'].set_text(self._title_string)
 
-        self._artists = [self.plot_data['den_lon_mesh'], self.plot_data['den_lat_mesh'],
-                         self.plot_data['vel_lon_mesh'], self.plot_data['vel_lat_mesh'],
-                         self.plot_data['den_time_earth'], self.plot_data['den_time_stereo_a'],
-                         self.plot_data['den_time_stereo_b'], self.plot_data['vel_time_earth'],
-                         self.plot_data['vel_time_stereo_a'], self.plot_data['vel_time_stereo_b'],
+        # Saving artists that were updated for potential interactive
+        # speed improvements with blitting
+        self._artists = [self.plot_data['den_lon_mesh'],
+                         self.plot_data['den_lat_mesh'],
+                         self.plot_data['vel_lon_mesh'],
+                         self.plot_data['vel_lat_mesh'],
+                         self.plot_data['den_time_earth'],
+                         self.plot_data['den_time_stereo_a'],
+                         self.plot_data['den_time_stereo_b'],
+                         self.plot_data['vel_time_earth'],
+                         self.plot_data['vel_time_stereo_a'],
+                         self.plot_data['vel_time_stereo_b'],
                          self.plot_data['title']]
         # Removing the mesh plots from the blit artists
-        # self._artists = [self.plot_data['den_time_earth'], self.plot_data['den_time_stereo_a'],
-        #                  self.plot_data['den_time_stereo_b'], self.plot_data['vel_time_earth'],
-        #                  self.plot_data['vel_time_stereo_a'], self.plot_data['vel_time_stereo_b']]
-        self._artists = [self.plot_data[x] for x in self.plot_data]
+        # self._artists = [self.plot_data['den_time_earth'],
+        #                  self.plot_data['den_time_stereo_a'],
+        #                  self.plot_data['den_time_stereo_b'],
+        #                  self.plot_data['vel_time_earth'],
+        #                  self.plot_data['vel_time_stereo_a'],
+        #                  self.plot_data['vel_time_stereo_b']]
+        # self._artists = [self.plot_data[x] for x in self.plot_data]
         for artist in self._artists:
             artist.set_animated(True)
         return self._artists
 
-    def save(self, filename):
+    def save(self, filename=None):
         """Saves the current figure with the given filename."""
+        if filename is None:
+            filename = "enlil_{}.png".format(self._time_string)
         self.fig.savefig(filename)
 
 
 def _mesh_grid(x, y):
     """
-    matplotlib.pcolormesh currently needs data specified at edges
+    matplotlib's pcolormesh currently needs data specified at edges
     and drops the last column of the data, unfortunately. This function
     borrows from matplotlib PR #16258, which will automatically extend
     the grids in the future (Likely MPL 3.3+).
