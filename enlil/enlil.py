@@ -27,7 +27,19 @@ class Enlil:
 
     @property
     def times(self):
-        return self.ds['t']
+        return self.ds['t'].values
+
+    @property
+    def r(self):
+        return self.ds['r'].values
+
+    @property
+    def lon(self):
+        return self.ds['lon'].values
+
+    @property
+    def lat(self):
+        return self.ds['lat'].values
 
     @_validate_satellite
     def get_satellite_position(self, satellite, time):

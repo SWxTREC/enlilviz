@@ -16,10 +16,25 @@ from matplotlib.transforms import Affine2D
 
 import numpy as np
 
-mpl.style.use(['dark_background'])  # , 'enlil.mplstyle'
+mpl.style.use(['dark_background'])
+enlil_style = {
+    "xtick.labelsize": 18,
+    "ytick.labelsize": 18,
+    "font.size": 18,
+    "figure.figsize": (20, 12.5),
+    "figure.dpi": 72,
+    "axes.titlesize": 18,
+    "axes.labelsize": 18,
+    "lines.linewidth": 1,
+    "lines.markersize": 6,
+    "legend.fontsize": 18,
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Times"]}
 
 # sample the colormaps. Use 128 from each so we get 256 colors in total
 _cm1 = mpl.cm.get_cmap('gist_ncar')(np.linspace(0.05, 1, 128))
+# It would be better to use a nicer colormap if possible...
 # cm1 = mpl.cm.get_cmap('plasma')(np.linspace(0., 1, 128))
 _cm2 = mpl.cm.get_cmap('Greys')(np.linspace(0., 1, 128))
 
@@ -63,14 +78,14 @@ class ForecasterPlot:
         self.index = 0
 
         # Figure and axis creation
-        self.fig = plt.figure(constrained_layout=False)
+        self.fig = plt.figure(figsize=(20, 12.5), dpi=72)
         # Dictionary to store axes
         self.axes = {}
         # Dictionary to store plot variables
         self.plot_data = {}
 
         self.init_axes()
-        # self.init_plots()
+        self.init_plots()
 
     def init_axes(self):
         """
@@ -80,7 +95,6 @@ class ForecasterPlot:
         gs0 = gridspec.GridSpec(3, 1, height_ratios=(2, 10, 10), hspace=0.3)
         self.axes["title"] = plt.subplot(gs0[0])
 
-        # -----------
         # Density row
         # -----------
         gs00 = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs0[1],
@@ -113,7 +127,6 @@ class ForecasterPlot:
                                                      sharex=ax_den_earth,
                                                      sharey=ax_den_earth)
 
-        # ------------
         # Velocity row
         # ------------
         gs01 = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs0[2],
@@ -146,20 +159,11 @@ class ForecasterPlot:
                                                      sharex=ax_vel_earth,
                                                      sharey=ax_vel_earth)
 
+        # Add the colorbars right away since those won't ever be updated.
+        self._add_colorbars()
 
-    def init_plots(self):
-        # Initialize coordinate and grid data
-        r = self.enlil_run.r
-        lat = self.enlil_run.lat
-        lon = self.enlil_run.lon
-        # Latitutde-radial mesh
-        r_lat, lat_r = _mesh_grid(r, lat)
-        # Longitude-radial mesh
-        r_lon, lon_r = _meshgrid(r, lon)
-
-        # ---------
-        # Colorbars
-        # ---------
+    def _add_colorbars(self):
+        """Add the colorbars to the figure."""
         den_mappable = mpl.cm.ScalarMappable(norm=DEN_NORM, cmap=DEN_CMAP)
         plt.colorbar(den_mappable, cax=self.axes["den_colorbar"],
                      orientation='vertical',
@@ -172,31 +176,59 @@ class ForecasterPlot:
         self.axes["den_colorbar"].yaxis.set_label_position('left')
         self.axes["vel_colorbar"].yaxis.set_label_position('left')
 
-        # ----------------------
-        # Density longitude mesh
-        # ----------------------
+    def _init_lon_r_plots(self):
+        """Add longitude-radial meshes to the axes."""
+        run = self.enlil_run
+        r = run.r
+        lon = np.deg2rad(run.lon)
+        t0 = run.times[0]
+
+        # Make the longitude-radial mesh
+        r_lon, lon_r = _mesh_grid(r, lon)
+
+        # Get satellite positions
+        earth_pos = run.get_satellite_position('Earth', t0)
+        stereo_a_pos = run.get_satellite_position('STEREO_A', t0)
+        stereo_b_pos = run.get_satellite_position('STEREO_B', t0)
+
+        # Get the polarity data
+        outer_pol = run.get_slice('pol', 'lat', t0).sel({'r': r[-1]})
+        outer_pol = np.ma.masked_where(outer_pol <= 0, np.ones_like(outer_pol))
+        outer_pol *= r[-1]
+        inner_pol = run.get_slice('pol', 'lat', t0).sel({'r': r[0]})
+        inner_pol = np.ma.masked_where(inner_pol <= 0, np.ones_like(inner_pol))
+        inner_pol *= r[0] - 0.025
+
+        # Density plot first
+        # ------------------
         ax = self.axes["den_longitude"]
         ax.axis('off')
-        mesh = ax.pcolormesh(lon_r, r_lon, np.ones(lon_r.shape),
-                             cmap=DEN_CMAP, norm=DEN_NORM, shading='gouraud')
+
+        data = run.get_slice('den', 'lat', t0) * r**2
+        mesh = ax.pcolormesh(lon_r, r_lon, data,
+                             cmap=DEN_CMAP, norm=DEN_NORM,
+                             shading='flat')
         self.plot_data['den_lon_mesh'] = mesh
 
         # Polarity lines
-        arc_min, = ax.plot(lon, r[0]*np.ones(len(lon)),
+        arc_min, = ax.plot(lon, inner_pol,
                            c='tab:orange', linewidth=3)
-        arc_max, = ax.plot(lon, r[-1]*np.ones(len(lon)),
+        arc_max, = ax.plot(lon, outer_pol,
                            c='tab:orange', linewidth=5)
         self.plot_data['den_lon_arc_min'] = arc_min
         self.plot_data['den_lon_arc_max'] = arc_max
 
         # Planets and satellites
-        sun = ax.scatter(0, 0, color='white', s=100, zorder=2)
-        earth = ax.scatter(0, 0, color='tab:green', edgecolor='k',
-                           s=100, zorder=2)
-        stereo_a = ax.scatter(0, 0, color='tab:red', edgecolor='k',
-                              s=100, zorder=2)
-        stereo_b = ax.scatter(0, 0, color='tab:blue', edgecolor='k',
-                              s=100, zorder=2)
+        sun, = ax.plot(0, 0, 'o', color='gold', markersize=10, zorder=2)
+        # Coodinates to polar plot are: lon, r
+        earth, = ax.plot(np.deg2rad(earth_pos[2]), earth_pos[0], 'o', color='tab:green',
+                         markeredgecolor='k', markersize=10, zorder=2)
+        stereo_a, = ax.plot(np.deg2rad(stereo_a_pos[2]), stereo_a_pos[0], 'o',
+                            color='tab:red', markeredgecolor='k',
+                            markersize=10, zorder=2)
+        stereo_b, = ax.plot(np.deg2rad(stereo_b_pos[2]), stereo_b_pos[0], 'o',
+                            color='tab:blue', markeredgecolor='k',
+                            markersize=10, zorder=2)
         self.plot_data['den_lon_sun'] = sun
         self.plot_data['den_lon_earth'] = earth
         self.plot_data['den_lon_stereo_a'] = stereo_a
@@ -205,66 +237,41 @@ class ForecasterPlot:
         # Circle on Earth (1AU)
         # ax.axvline(0., c='k', zorder=1)
         circle_points = np.linspace(0, 2*np.pi)
-        ax.plot(circle_points, np.ones(len(circle_points)), c='k', zorder=1)
+        ax.plot(circle_points, np.ones(len(circle_points)), c='k',
+                zorder=1)
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_ylim(0, np.max(r))
 
-        # ---------------------
-        # Density latitude mesh
-        # ---------------------
-        ax = self.axes['den_latitude']
-        ax.axis('off')
-        mesh = ax.pcolormesh(lat_r, r_lat, np.ones(lat_r.shape),
-                             cmap=DEN_CMAP, norm=DEN_NORM, shading='gouraud')
-        self.plot_data['den_lat_mesh'] = mesh
-
-        # Polarity lines
-        arc_min, = ax.plot(lat, r[0]*np.ones(len(lat)), c='tab:orange',
-                           linewidth=3, zorder=3)
-        arc_max, = ax.plot(lat, r[-1]*np.ones(len(lat)), c='tab:orange',
-                           linewidth=5, zorder=3)
-        self.plot_data['den_lat_arc_min'] = arc_min
-        self.plot_data['den_lat_arc_max'] = arc_max
-
-        # Planets and satellites
-        sun = ax.scatter(0, 0, color='white', s=100, zorder=2)
-        earth = ax.scatter(0, 0, color='tab:green', edgecolor='k',
-                           s=100, zorder=2)
-        # For the xy-plane this would only make sense if longitude
-        # of Earth == longitude of STEREO
-        # ax.scatter(0, 0, color='tab:red', edgecolor='k', s=100, zorder=2)
-        # ax.scatter(0, 0, color='tab:blue', edgecolor='k', s=100, zorder=2)
-        self.plot_data['den_lat_sun'] = sun
-        self.plot_data['den_lat_earth'] = earth
-
-        # x == theta, y == r
-        ax.set_xlim(np.min(lat), np.max(lat))
-        ax.set_ylim(0, np.max(r))
-        ax.set_yticks([])
-
-        # -----------------------
-        # Velocity longitude mesh
-        # -----------------------
+        # Velocity
+        # --------
         ax = self.axes["vel_longitude"]
         ax.axis('off')
-        mesh = ax.pcolormesh(lon_r, r_lon, np.ones(lon_r.shape),
-                             cmap=VEL_CMAP, norm=VEL_NORM, shading='gouraud')
+        data = run.get_slice('vel', 'lat', t0)
+        mesh = ax.pcolormesh(lon_r, r_lon, data,
+                             cmap=VEL_CMAP, norm=VEL_NORM, shading='flat')
         self.plot_data['vel_lon_mesh'] = mesh
 
         # Polarity lines
-        arc_min, = ax.plot(lon, r[0]*np.ones(len(lon)), c='tab:orange',
+        arc_min, = ax.plot(lon, inner_pol, c='tab:orange',
                            linewidth=3, zorder=3)
-        arc_max, = ax.plot(lon, r[-1]*np.ones(len(lon)), c='tab:orange',
+        arc_max, = ax.plot(lon, outer_pol, c='tab:orange',
                            linewidth=5, zorder=3)
         self.plot_data['vel_lon_arc_min'] = arc_min
         self.plot_data['vel_lon_arc_max'] = arc_max
 
         # Planets and satellites
-        sun = ax.scatter(0, 0, color='white', s=100, zorder=2)
-        earth = ax.scatter(0, 0, color='tab:green', edgecolor='k', s=100, zorder=2)
-        stereo_a = ax.scatter(0, 0, color='tab:red', edgecolor='k', s=100, zorder=2)
-        stereo_b = ax.scatter(0, 0, color='tab:blue', edgecolor='k', s=100, zorder=2)
+        sun, = ax.plot(0, 0, 'o', color='gold', markersize=10, zorder=2)
+        # Coodinates to polar plot are: lon, r
+        earth, = ax.plot(np.deg2rad(earth_pos[2]), earth_pos[0], 'o',
+                         color='tab:green',
+                         markeredgecolor='k', markersize=10, zorder=2)
+        stereo_a, = ax.plot(np.deg2rad(stereo_a_pos[2]), stereo_a_pos[0], 'o',
+                            color='tab:red', markeredgecolor='k',
+                            markersize=10, zorder=2)
+        stereo_b, = ax.plot(np.deg2rad(stereo_b_pos[2]), stereo_b_pos[0], 'o',
+                            color='tab:blue', markeredgecolor='k',
+                            markersize=10, zorder=2)
         self.plot_data['vel_lon_sun'] = sun
         self.plot_data['vel_lon_earth'] = earth
         self.plot_data['vel_lon_stereo_a'] = stereo_a
@@ -277,6 +284,97 @@ class ForecasterPlot:
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_ylim(0, np.max(r))
+
+    def _init_lat_r_plots(self):
+        """Add latitude-radial meshes to the axes."""
+        run = self.enlil_run
+        r = run.r
+        lat = np.deg2rad(run.lat)
+        t0 = run.times[0]
+
+        # Make the longitude-radial mesh
+        r_lat, lat_r = _mesh_grid(r, lat)
+
+        # Get satellite positions
+        # We don't need STEREO spacecraft for this slicing plane
+        earth_pos = run.get_satellite_position('Earth', t0)
+
+        # Get the polarity data
+        outer_pol = run.get_slice('pol', 'lon', t0).sel({'r': r[-1]})
+        outer_pol = np.ma.masked_where(outer_pol <= 0, np.ones_like(outer_pol))
+        outer_pol *= r[-1]
+        inner_pol = run.get_slice('pol', 'lon', t0).sel({'r': r[0]})
+        inner_pol = np.ma.masked_where(inner_pol <= 0, np.ones_like(inner_pol))
+        inner_pol *= r[0] - 0.025
+
+        # Density latitude mesh
+        # ---------------------
+        ax = self.axes['den_latitude']
+        ax.axis('off')
+
+        data = run.get_slice('den', 'lon', t0) * r**2
+        mesh = ax.pcolormesh(lat_r, r_lat, data,
+                             cmap=DEN_CMAP, norm=DEN_NORM, shading='flat')
+        self.plot_data['den_lat_mesh'] = mesh
+
+        # Polarity lines
+        arc_min, = ax.plot(lat, inner_pol, c='tab:orange',
+                           linewidth=3, zorder=3)
+        arc_max, = ax.plot(lat, outer_pol, c='tab:orange',
+                           linewidth=5, zorder=3)
+        self.plot_data['den_lat_arc_min'] = arc_min
+        self.plot_data['den_lat_arc_max'] = arc_max
+
+        # Planets and satellites
+        # sun, = ax.plot(0, 0, 'o', color='gold', markersize=10, zorder=2)
+        # Coodinates to polar plot are: lat, r
+        earth, = ax.plot(np.deg2rad(earth_pos[1]), earth_pos[0], 'o',
+                         color='tab:green',
+                         markeredgecolor='k', markersize=10, zorder=2)
+        # self.plot_data['den_lat_sun'] = sun
+        self.plot_data['den_lat_earth'] = earth
+
+        # x == theta, y == r
+        ax.set_xlim(np.min(lat), np.max(lat))
+        ax.set_ylim(0, np.max(r))
+        ax.set_yticks([])
+
+        # Velocity latitude mesh
+        # ----------------------
+        ax = self.axes['vel_latitude']
+        ax.axis('off')
+        data = run.get_slice('vel', 'lon', t0)
+        mesh = ax.pcolormesh(lat_r, r_lat, data,
+                             cmap=VEL_CMAP, norm=VEL_NORM, shading='flat')
+        self.plot_data['vel_lat_mesh'] = mesh
+
+        # Polarity lines
+        arc_min, = ax.plot(lat, inner_pol, c='tab:orange', linewidth=3)
+        arc_max, = ax.plot(lat, outer_pol, c='tab:orange', linewidth=5)
+        self.plot_data['vel_lat_arc_min'] = arc_min
+        self.plot_data['vel_lat_arc_max'] = arc_max
+
+        # Planets and satellites
+        # sun, = ax.plot(0, 0, 'o', color='gold', markersize=10, zorder=2)
+        # Coodinates to polar plot are: lat, r
+        earth, = ax.plot(np.deg2rad(earth_pos[1]), earth_pos[0], 'o',
+                         color='tab:green',
+                         markeredgecolor='k', markersize=10, zorder=2)
+        # self.plot_data['vel_lat_sun'] = sun
+        self.plot_data['vel_lat_earth'] = earth
+
+        # x == theta, y == r
+        ax.set_xlim(np.min(lat), np.max(lat))
+        ax.set_ylim(0, np.max(r))
+        ax.set_yticks([])
+
+    def init_plots(self):
+
+        self._init_lon_r_plots()
+        self._init_lat_r_plots()
+
+        return
+
 
         # ----------------------
         # Velocity latitude mesh
@@ -361,7 +459,7 @@ class ForecasterPlot:
         ax_earth.xaxis.set_major_locator(mpl.dates.DayLocator())
         ax_earth.xaxis.set_major_formatter(mpl.dates.DateFormatter("%d"))
         ax_earth.set_title('Plasma Density (/cm$^3$)')
-        
+
         earth_vel = self.enlil_run.get_satellite_data('Earth', 'velocity')
         stereo_a_vel = self.enlil_run.get_satellite_data('STEREO_A', 'velocity')
         stereo_b_vel = self.enlil_run.get_satellite_data('STEREO_B', 'velocity')
@@ -386,14 +484,11 @@ class ForecasterPlot:
 
     def update_plot(self, time):
         """Updates the plot with data from the requested time."""
+        ds = self.enlil_run
         r = self.enlil_run.r
         lat = self.enlil_run.lat
-        # NOTE: For pcolormesh we need to put the vertices at the edges
-        #       of the mesh rather than the centers, so vertices
-        #       needs to be shape (N+1, M+1)
-        lon = _cyclic_point(self.enlil_run.lon)
 
-        enlil = self.enlil_run
+        
         self.index = np.nonzero(time <= self.enlil_run.times)[0][0]
 
         # ---------------
@@ -492,9 +587,9 @@ class ForecasterPlot:
 def _mesh_grid(x, y):
     """
     matplotlib.pcolormesh currently needs data specified at edges
-    and drops the last column of the data unfortunately. This function
+    and drops the last column of the data, unfortunately. This function
     borrows from matplotlib PR #16258, which will automatically extend
-    the grids in the future.
+    the grids in the future (Likely MPL 3.3+).
     """
     def _interp_grid(X):
         # helper for below
