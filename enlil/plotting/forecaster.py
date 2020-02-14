@@ -78,7 +78,8 @@ class ForecasterPlot:
         self.index = 0
 
         # Figure and axis creation
-        self.fig = plt.figure(figsize=(20, 12.5), dpi=72)
+        self.fig = plt.figure(figsize=(20, 12.5), dpi=72,
+                              constrained_layout=False)
         # Dictionary to store axes
         self.axes = {}
         # Dictionary to store plot variables
@@ -92,13 +93,15 @@ class ForecasterPlot:
         Initializing the axes and setting up the grid. This routine
         makes heavy use of gridspecs for the layout.
         """
-        gs0 = gridspec.GridSpec(3, 1, height_ratios=(2, 10, 10), hspace=0.3)
+        gs0 = gridspec.GridSpec(3, 1, height_ratios=(1, 20, 20),
+                                hspace=0.3, figure=self.fig)
         self.axes["title"] = plt.subplot(gs0[0])
 
         # Density row
         # -----------
         gs00 = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs0[1],
-                                                width_ratios=(1, 10, 5, 15))
+                                                width_ratios=(1, 20, 10, 30),
+                                                wspace=0.1)
         self.axes["den_colorbar"] = plt.subplot(gs00[0])
         self.axes["den_longitude"] = plt.subplot(gs00[1], projection='polar')
         # Using a normal polar subplot leaves too much space around the edges,
@@ -130,7 +133,8 @@ class ForecasterPlot:
         # Velocity row
         # ------------
         gs01 = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs0[2],
-                                                width_ratios=(1, 10, 5, 15))
+                                                width_ratios=(1, 20, 10, 30),
+                                                wspace=0.1)
         self.axes["vel_colorbar"] = plt.subplot(gs01[0])
         self.axes["vel_longitude"] = plt.subplot(gs01[1], projection='polar')
         # Using a normal polar subplot leaves too much space around the edges,
@@ -368,78 +372,96 @@ class ForecasterPlot:
         ax.set_ylim(0, np.max(r))
         ax.set_yticks([])
 
+    def _init_timeseries_plots(self):
+        """Initialize the timeseries plots with data from the satellites."""
+        run = self.enlil_run
+        times = run.earth_times
+        t0 = run.times[0]
+
+        earth_den = run.get_satellite_data('Earth', 'den')
+        stereo_a_den = run.get_satellite_data('STEREO_A', 'den')
+        stereo_b_den = run.get_satellite_data('STEREO_B', 'den')
+        ax_earth = self.axes['den_time_earth']
+        ax_stereo_a = self.axes['den_time_stereo_a']
+        ax_stereo_b = self.axes['den_time_stereo_b']
+
+        ax_earth.plot(times, earth_den, c='tab:green')
+        ax_stereo_a.plot(times, stereo_a_den, c='tab:red')
+        ax_stereo_b.plot(times, stereo_b_den, c='tab:blue')
+        # Vertical lines for time need to be stored to update later
+        self.plot_data['den_time_earth'] = ax_earth.axvline(t0, c='y',
+                                                            linewidth=3,
+                                                            zorder=5)
+        self.plot_data['den_time_stereo_a'] = ax_stereo_a.axvline(t0, c='y',
+                                                                  linewidth=3,
+                                                                  zorder=5)
+        self.plot_data['den_time_stereo_b'] = ax_stereo_b.axvline(t0, c='y',
+                                                                  linewidth=3,
+                                                                  zorder=5)
+
+        plt.setp(ax_earth.get_xticklabels(), visible=False)
+        plt.setp(ax_stereo_a.get_xticklabels(), visible=False)
+        ax_earth.set_xlim(run.times[0], run.times[-1])
+        ax_earth.xaxis.set_major_locator(mpl.dates.DayLocator())
+        ax_earth.xaxis.set_major_formatter(mpl.dates.DateFormatter("%d"))
+        ax_earth.set_title('Plasma Density (/cm$^3$)')
+
+        earth_vel = run.get_satellite_data('Earth', 'vel', coord='r')
+        stereo_a_vel = run.get_satellite_data('STEREO_A', 'vel', coord='r')
+        stereo_b_vel = run.get_satellite_data('STEREO_B', 'vel', coord='r')
+        ax_earth = self.axes['vel_time_earth']
+        ax_stereo_a = self.axes['vel_time_stereo_a']
+        ax_stereo_b = self.axes['vel_time_stereo_b']
+
+        ax_earth.plot(times, earth_vel, c='tab:green')
+        ax_stereo_a.plot(times, stereo_a_vel, c='tab:red')
+        ax_stereo_b.plot(times, stereo_b_vel, c='tab:blue')
+        # Vertical lines for time need to be stored to update later
+        self.plot_data['vel_time_earth'] = ax_earth.axvline(t0, c='y',
+                                                            linewidth=3,
+                                                            zorder=5)
+        self.plot_data['vel_time_stereo_a'] = ax_stereo_a.axvline(t0, c='y',
+                                                                  linewidth=3,
+                                                                  zorder=5)
+        self.plot_data['vel_time_stereo_b'] = ax_stereo_b.axvline(t0, c='y',
+                                                                  linewidth=3,
+                                                                  zorder=5)
+
+        plt.setp(ax_earth.get_xticklabels(), visible=False)
+        plt.setp(ax_stereo_a.get_xticklabels(), visible=False)
+        ax_earth.set_xlim(run.times[0], run.times[-1])
+        ax_earth.xaxis.set_major_locator(mpl.dates.DayLocator())
+        ax_earth.xaxis.set_major_formatter(mpl.dates.DateFormatter("%d"))
+        ax_earth.set_title('Radial Velocity (km/s)')
+
+    def _init_title(self):
+        """Write the time as the title."""
+        ax = self.axes['title']
+        # Turn all borders and spines off
+        ax.axis('off')
+        t0 = self.enlil_run.times[0]
+        self.plot_data['title'] = ax.text(0.5, 0.5,
+                                          str(t0).replace('T', ' ')[:16],
+                                          fontsize=30, color='gold',
+                                          horizontalalignment='center',
+                                          verticalalignment='center')
+
+    def _init_model_details(self):
+        """Extra information plotted at the bottom of the figure."""
+        pass
+
     def init_plots(self):
 
         self._init_lon_r_plots()
         self._init_lat_r_plots()
-
+        self._init_timeseries_plots()
+        self._init_title()
+        print(self.enlil_run.ds)
         return
 
-
-        # ----------------------
-        # Velocity latitude mesh
-        # ----------------------
-        ax = self.axes['vel_latitude']
-        ax.axis('off')
-        mesh = ax.pcolormesh(lat_r, r_lat, np.ones(lat_r.shape),
-                             cmap=VEL_CMAP, norm=VEL_NORM, shading='gouraud')
-        self.plot_data['vel_lat_mesh'] = mesh
-
-        # Polarity lines
-        arc_min, = ax.plot(lat, r[0]*np.ones(len(lat)), c='tab:orange', linewidth=3)
-        arc_max, = ax.plot(lat, r[-1]*np.ones(len(lat)), c='tab:orange', linewidth=5)
-        self.plot_data['vel_lat_arc_min'] = arc_min
-        self.plot_data['vel_lat_arc_max'] = arc_max
-
-        # Planets and satellites
-        sun = ax.scatter(0, 0, color='white', s=100, zorder=2)
-        earth = ax.scatter(0, 0, color='tab:green', edgecolor='k', s=100, zorder=2)
-        # For the xy-plane this would only make sense if longitude of Earth == longitude of STEREO
-        # ax.scatter(0, 0, color='tab:red', edgecolor='k', s=100, zorder=2)
-        # ax.scatter(0, 0, color='tab:blue', edgecolor='k', s=100, zorder=2)
-        self.plot_data['vel_lat_sun'] = sun
-        self.plot_data['vel_lat_earth'] = earth
-
-        # x == theta, y == r
-        ax.set_xlim(np.min(lat), np.max(lat))
-        ax.set_ylim(0, np.max(r))
-        ax.set_yticks([])
-
-        # -----------------
-        # Time series plots
-        # -----------------
-        # Called in a separate function to plot the static time series with data
-        self.init_time_series()
-
-        # Now make the vertical lines indicating the current time
-        t0 = self.time
-        ax_earth = self.axes['den_time_earth']
-        ax_stereo_a = self.axes['den_time_stereo_a']
-        ax_stereo_b = self.axes['den_time_stereo_b']
-        self.plot_data['den_time_earth'] = ax_earth.axvline(t0, c='y', linewidth=2)
-        self.plot_data['den_time_stereo_a'] = ax_stereo_a.axvline(t0, c='y', linewidth=2)
-        self.plot_data['den_time_stereo_b'] = ax_stereo_b.axvline(t0, c='y', linewidth=2)
-
-        ax_earth = self.axes['vel_time_earth']
-        ax_stereo_a = self.axes['vel_time_stereo_a']
-        ax_stereo_b = self.axes['vel_time_stereo_b']
-        self.plot_data['vel_time_earth'] = ax_earth.axvline(t0, c='y', linewidth=2)
-        self.plot_data['vel_time_stereo_a'] = ax_stereo_a.axvline(t0, c='y', linewidth=2)
-        self.plot_data['vel_time_stereo_b'] = ax_stereo_b.axvline(t0, c='y', linewidth=2)
-
-        # Title
-        ax = self.axes['title']
-        # Turn all borders and spines off
-        ax.axis('off')
-        self.plot_data['title'] = ax.text(0.5, 0.5, str(t0).replace('T', ' ')[:16],
-                                          fontsize=30, color='w',
-                                          horizontalalignment='center',
-                                          verticalalignment='center')
-
         # Update the plot with all of the proper data from the first time-step
-        self.fig.canvas.draw()
-        self.fig.set_constrained_layout(False)
-        return self.update_plot(self.time)
+        # self.fig.canvas.draw()
+        # self.fig.set_constrained_layout(False)
 
     def init_time_series(self):
         times = self.enlil_run.earth_times

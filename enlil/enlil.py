@@ -27,18 +27,27 @@ class Enlil:
 
     @property
     def times(self):
+        """Data times for slice plots."""
         return self.ds['t'].values
 
     @property
+    def earth_times(self):
+        """Satellite times for time series plots."""
+        return self.ds['earth_t'].values
+
+    @property
     def r(self):
+        """Radial coordinate (AU)."""
         return self.ds['r'].values
 
     @property
     def lon(self):
+        """Longitudinal coordinate (deg)."""
         return self.ds['lon'].values
 
     @property
     def lat(self):
+        """Latitudinal coordinate (deg)."""
         return self.ds['lat'].values
 
     @_validate_satellite
@@ -62,7 +71,7 @@ class Enlil:
 
         varname = var
         if coord is not None:
-            varname += coord
+            varname += '_' + coord
         return self.ds.loc[{'satellite': satellite}][varname]
 
     def get_slice(self, var, plane, time=None):
