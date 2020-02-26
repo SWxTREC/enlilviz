@@ -78,7 +78,7 @@ class Enlil:
         """
         Returns a spatial slice of the data.
 
-        *var* : Requested : velocity, density, polarity
+        *var* : Requested : vel, den, pol
         *plane* : Slicing plane (r, lat, lon)
         *time* : The time to slice by, if None a 3d array
                  will be returned (time, dim1, dim2)
@@ -89,3 +89,49 @@ class Enlil:
             da = da.sel({'t': time}, method='nearest')
 
         return da
+
+
+class Evolution:
+    """
+    The temporal `Evolution` for a single point of interest from
+    an Enlil model run initialized from an :xarray.Dataset: *ds*.
+
+    It adds helper methods to make getting data easier.
+    """
+
+    def __init__(self, ds):
+        self.ds = ds
+
+    @property
+    def times(self):
+        """
+        There are no slices in Evolution files, so this
+        method simply returns all satellite times."""
+        return self.earth_times
+
+    @property
+    def earth_times(self):
+        """Satellite times for time series plots."""
+        return self.ds['earth_t'].values
+
+    def get_position(self, time):
+        """
+        Returns the position of this object (r, lat, lon)
+        nearest to the requested *time*.
+        """
+
+        ds = self.ds.sel({'earth_t': time}, method='nearest')
+        return (ds['pos_r'], ds['pos_lat'], ds['pos_lon'])
+
+    def get_satellite_data(self, satellite, var, coord=None):
+        """
+        Returns the time-series of data.
+        *var* : A variable in the dataset
+        *coord* : The coordinate direction of the variable (if it is a vector)
+        """
+        # TODO: Remove satellite from this? Right now, it makes it simpler
+        #       to keep the plot calls consistent with TimeSeries
+        varname = var
+        if coord is not None:
+            varname += '_' + coord
+        return self.ds[varname]

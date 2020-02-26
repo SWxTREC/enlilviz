@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from enlilviz.enlil import Enlil
+from enlilviz.enlil import Enlil, Evolution
 
 # Mass of hydrogen (kg)
 _m_hydrogen = 1.6735575e-27
@@ -20,6 +20,11 @@ _variables = {'X1': 'pos_r', 'X2': 'pos_lat', 'X3': 'pos_lon',
               'B1': 'mag_r', 'B2': 'mag_lat', 'B3': 'mag_lon',
               'Density': 'den', 'Temperature': 'temp',
               'DP_CME': 'cme', 'BP_POLARITY': 'pol'}
+# Of course evo files are labeled differently
+_variables_evo = {'X1': 'pos_r', 'X2': 'pos_lat', 'X3': 'pos_lon',
+                  'V1': 'vel_r', 'V2': 'vel_lat', 'V3': 'vel_lon',
+                  'B1': 'mag_r', 'B2': 'mag_lat', 'B3': 'mag_lon',
+                  'D': 'den', 'T': 'temp', 'DP': 'cme', 'BP': 'pol'}
 _satellites = ['Earth', 'STEREO_A', 'STEREO_B']
 
 
@@ -75,6 +80,39 @@ def read_enlil2d(filename):
     return Enlil(ds)
 
 
+def read_evo(filename):
+    """
+    Load an `evo` post-processed Enlil file into an *Evo* class
+
+    filename : netcdf evo Enlil post-processed output file
+               evo.earth.nc
+    """
+    ds = xr.load_dataset(filename)
+
+    # Change the dimension to time
+    t0 = np.datetime64(ds.attrs['rundate_cal'], 's')
+    time = t0 + np.array(ds['TIME'], np.timedelta64)
+    ds = ds.rename({'nevo': 'earth_t'}).assign_coords({'earth_t': time})
+    ds = ds.drop(['TIME', 'DT', 'NSTEP'])
+
+    for var in _variables_evo:
+        if var not in ds:
+            continue
+
+        da = ds[var]
+        # Update the name to be consistent across data sets
+        name = _variables_evo[var]
+        da.name = name
+
+        # Unit conversions
+        da = _transform_variable(da)
+        ds[name] = da
+        ds = ds.drop(var)
+        ds.attrs['name'] = ds.label
+
+    return Evolution(ds)
+
+
 def _calibrate_variable(ds, var):
     """Calibrates the variable *var* from the dataset *ds*.
     All variables whose names begin with 'uncalibrated' are calibrated
@@ -109,7 +147,10 @@ def _calibrate_variable(ds, var):
         name += 'vel'
     elif var[:2] == 'dd':
         da *= _unit_conversion['den']
-        da.attrs['units'] = '#/cm3'
+        if '1' in var:
+            # Only multiply the lat/lon slices by r**2
+            da *= ds['r']**2
+        da.attrs['units'] = 'r2 N/cm3'
         da.attrs['long_name'] = 'density'
         name += 'den'
     elif var[:2] == 'pp':
