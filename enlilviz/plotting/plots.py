@@ -1,4 +1,4 @@
-"""Default forecast center figures."""
+"""Generic plot wrappers for Enlil objects."""
 from datetime import datetime
 import numpy as np
 import matplotlib as mpl
@@ -38,10 +38,25 @@ SAT_COLORS = {'Earth': 'tab:green',
 
 
 class _BasePlot:
-    """
-    A base plotting class for access to generic properties.
+    """A base plotting class for access to generic properties.
 
-    *enlil_run* : A :class:`enlil.Enlil` model run.
+    Parameters
+    ----------
+    enlil_run : enlil.Enlil
+        An Enlil model run
+    ax : axis, optional
+        An axis to create the plot in. If left out, a proper default
+        axis will be created for the plot.
+
+    Attributes
+    ----------
+    enlil_run : enlil.Enlil
+        The Enlil model run associated with this plot.
+    ax : axis
+        The axis for this plot.
+    plot_data : dict
+        All of the plot objects that can be updated, such as
+        lines, markers, and mesh collections.
     """
 
     def __init__(self, enlil_run, ax=None):
@@ -63,24 +78,45 @@ class _BasePlot:
         return self.enlil_run.times[self._index]
 
     def set_time(self, time):
-        """Sets the current time of the plot."""
+        """Sets the current time of the plot and updates the data.
+
+        Parameters
+        ----------
+        time : datetime-like
+            The time to set the current plot to.
+        """
         da = self.enlil_run.times
         # Find the nearest time in the dataset, then find the
         # index where that occurs
-        idx = (da == da.sel({'t': time}, method='nearest')).values.argmax()
-        self._index = idx
+        index = (da == da.sel({'t': time}, method='nearest')).values.argmax()
+        self.set_index(index)
 
     def set_index(self, index):
-        """Sets the current index of the plot."""
+        """Sets the current index of the plot and updates the data.
+
+        Parameters
+        ----------
+        index : int
+            The index to set the plot to.
+
+        Raises
+        ------
+        IndexError
+            If the index is outside of the valid range of the
+            length of times available in the Enlil object.
+        """
         if index > len(self.enlil_run.times) or index < 0:
-            raise ValueError("The index is outside of the valid range.")
-        self._index = index
+            raise IndexError("The index is outside of the valid range.")
+        # Only update if the index is changed
+        if index != self._index:
+            self._index = index
+            self.update()
 
     def __next__(self):
         """Step ahead to the next time in the plot."""
         self._index += 1
         if self._index < len(self.enlil_run.times):
-            self.update_plot()
+            self.update()
             return self
         # We have reached the end of the available times
         raise StopIteration
@@ -91,11 +127,11 @@ class _BasePlot:
         return self
 
     def _init_plot(self):
-        """Initialize plot parameters."""
+        """Initialize the axis with all of the plot data."""
         raise NotImplementedError
 
-    def update_plot(self):
-        """Update the plot to the given *time*."""
+    def update(self):
+        """Update all variable quantities within the plot."""
         raise NotImplementedError
 
     def _get_polarity_data(self, slice_plane):
@@ -103,7 +139,17 @@ class _BasePlot:
         Helper function to get the inner and outer boundary
         polarity data for the given slicing plane.
 
-        *slice_plane* slicing plane (lon, lat)
+        Parameters
+        ----------
+        slice_plane : str
+            The slicing plane one of: lon, lat
+
+        Returns
+        -------
+        masked_array
+            The inner boundary of polarity with negative values masked.
+        masked_array
+            The outer boundary of polarity with negative values masked.
         """
         run = self.enlil_run
         r = run.r
@@ -123,9 +169,12 @@ class _BasePlot:
 
 class LatitudeSlice(_BasePlot):
     """
-    A latitude slice plot, which is in longitude-radial coordinates.
+    A latitude polar slice plot, which is in longitude-radial coordinates.
 
-    *var* Variable to plot (den, vel)
+    Parameters
+    ----------
+    var : str
+        Variable to plot (den, vel)
     """
 
     def __init__(self, enlil_run, var, ax=None):
@@ -134,6 +183,7 @@ class LatitudeSlice(_BasePlot):
         super().__init__(enlil_run, self.ax)
 
     def _init_plot(self):
+        """Initialize the axis with all of the plot data."""
         run = self.enlil_run
         r = run.r
         lon = np.deg2rad(run.lon)
@@ -181,7 +231,8 @@ class LatitudeSlice(_BasePlot):
         ax.set_yticks([])
         ax.set_ylim(0, np.max(r))
 
-    def update_plot(self):
+    def update(self):
+        """Update all variable quantities within the plot."""
         run = self.enlil_run
         lon = np.deg2rad(run.lon)
         data = run.get_slice(self.var, 'lat', self.time)
@@ -197,10 +248,12 @@ class LatitudeSlice(_BasePlot):
 
 
 class LongitudeSlice(_BasePlot):
-    """
-    A longitude slice plot, which is in latitude-radial coordinates.
+    """A longitude polar slice plot, which is in latitude-radial coordinates.
 
-    *var* Variable to plot (den, vel)
+    Parameters
+    ----------
+    var : str
+        Variable to plot (den, vel)
     """
 
     def __init__(self, enlil_run, var, ax=None):
@@ -209,6 +262,7 @@ class LongitudeSlice(_BasePlot):
         super().__init__(enlil_run, self.ax)
 
     def _init_plot(self):
+        """Initialize the axis with all of the plot data."""
         run = self.enlil_run
         r = run.r
         lat = np.deg2rad(run.lat)
@@ -251,7 +305,8 @@ class LongitudeSlice(_BasePlot):
         ax.set_ylim(0, np.max(r))
         ax.set_yticks([])
 
-    def update_plot(self):
+    def update(self):
+        """Update all variable quantities within the plot."""
         run = self.enlil_run
         lat = np.deg2rad(run.lat)
         data = run.get_slice(self.var, 'lon', self.time)
@@ -267,11 +322,14 @@ class LongitudeSlice(_BasePlot):
 
 
 class TimeSeries(_BasePlot):
-    """
-    A time series plot of satellite data.
+    """A time series plot of satellite data.
 
-    *sat* Satellite of interest (Earth, STEREO_A, STEREO_B)
-    *var* Variable to plot (den, vel)
+    Parameters
+    ----------
+    sat : str
+        Satellite of interest (Earth, STEREO_A, STEREO_B)
+    var : str
+        Variable to plot (den, vel)
     """
     def __init__(self, enlil_run, sat, var, coord=None, ax=None):
         self.sat = sat
@@ -281,6 +339,7 @@ class TimeSeries(_BasePlot):
         super().__init__(enlil_run, self.ax)
 
     def _init_plot(self):
+        """Initialize the axis with all of the plot data."""
         run = self.enlil_run
         times = run.earth_times
 
@@ -309,20 +368,21 @@ class TimeSeries(_BasePlot):
         if self.sat != 'STEREO_B':
             plt.setp(ax.get_xticklabels(), visible=False)
 
-    def update_plot(self):
-        """Updates the plot with data from the requested time."""
+    def update(self):
+        """Update all variable quantities within the plot."""
         line = self.plot_data['timeline']
         line.set_xdata(self.time)
 
 
 class Title(_BasePlot):
-    """A title axes with the current time."""
+    """A title axis with the current time."""
 
     def __init__(self, enlil_run, ax=None):
         self.ax = plt.subplot() if ax is None else ax
         super().__init__(enlil_run, self.ax)
 
     def _init_plot(self):
+        """Initialize the axis with all of the plot data."""
         ax = self.ax
         # Turn all borders and spines off
         ax.axis('off')
@@ -332,7 +392,8 @@ class Title(_BasePlot):
                                           horizontalalignment='center',
                                           verticalalignment='center')
 
-    def update_plot(self):
+    def update(self):
+        """Update all variable quantities within the plot."""
         self.plot_data['title'].set_text(self._title_string())
 
     def _title_string(self):
@@ -361,8 +422,9 @@ class Colorbar:
 
 
 def _mesh_grid(x, y):
-    """
-    matplotlib's pcolormesh currently needs data specified at edges
+    """A helper function to extrapolate/center the meshgrid coordiantes.
+
+    Matplotlib's pcolormesh currently needs data specified at edges
     and drops the last column of the data, unfortunately. This function
     borrows from matplotlib PR #16258, which will automatically extend
     the grids in the future (Likely MPL 3.3+).

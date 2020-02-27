@@ -1,18 +1,21 @@
-"""Default forecast center figures."""
+"""Default forecast center figure."""
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from .plots import (LatitudeSlice, LongitudeSlice,
-                    TimeSeries, Title, Colorbar)
+from enlilviz.plotting.plots import (LatitudeSlice, LongitudeSlice,
+                                     TimeSeries, Title, Colorbar)
 
 mpl.style.use(['dark_background'])
 
 
 class ForecasterPlot:
-    """
-    Figure class for the main Forecaster plot.
+    """Figure class for the main Forecaster plot.
 
-    *enlil_run* : A :class:`enlil.Enlil` model run.
-    *watermark* : An optional watermark to add to the plots.
+    Parameters
+    ----------
+    enlil_run : enlilviz.enlil.Enlil
+        An Enlil model run.
+    watermark : str, optional
+        An optional watermark to add to the plots.
     """
 
     def __init__(self, enlil_run, watermark=None):
@@ -158,7 +161,7 @@ class ForecasterPlot:
         """Step ahead to the next time in the plot."""
         self._index += 1
         if self._index < len(self.enlil_run.times):
-            self.update_plot()
+            self.update()
             return self
         # We have reached the end of the available times
         raise StopIteration
@@ -168,16 +171,11 @@ class ForecasterPlot:
         self._index = 0
         return self
 
-    def _init_model_details(self):
-        """Extra information plotted at the bottom of the figure."""
-        pass
-
-    def update_plot(self):
+    def update(self):
         """Updates the plot with all of the proper data."""
         for plot in self.plots:
             p = self.plots[plot]
             p.set_index(self._index)
-            p.update_plot()
 
     def save(self, filename=None):
         """

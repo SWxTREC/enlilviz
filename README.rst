@@ -30,6 +30,8 @@ Read in Enlil data files into an xarray dataset for analysis::
 
   run = ev.read_enlil2d('wsa_enlil.latest.suball.nc')
 
+  evo = ev.read_evo('evo.earth.nc')
+
 Plot time series and slices with the data::
 
   import enlilviz.plotting as evplot

@@ -1,3 +1,4 @@
+"""Input routines for reading Enlil netcdf files."""
 import numpy as np
 import xarray as xr
 
@@ -29,11 +30,18 @@ _satellites = ['Earth', 'STEREO_A', 'STEREO_B']
 
 
 def read_enlil2d(filename):
-    """
-    Load a 2D post-processed Enlil file into an *Enlil* class
+    """Load a 2D post-processed Enlil file into an Enlil object.
 
-    filename : netcdf Enlil post-processed output file
-               wsa_enlil.latest.suball.nc
+    Parameters
+    ----------
+    filename : str
+        netcdf Enlil post-processed output file
+        Example: wsa_enlil.latest.suball.nc
+
+    Returns
+    -------
+    enlil.Enlil
+        An Enlil class representing the loaded file.
     """
     ds = xr.load_dataset(filename)
 
@@ -81,11 +89,18 @@ def read_enlil2d(filename):
 
 
 def read_evo(filename):
-    """
-    Load an `evo` post-processed Enlil file into an *Evo* class
+    """Load an `evo` post-processed Enlil file into an Evolution object.
 
-    filename : netcdf evo Enlil post-processed output file
-               evo.earth.nc
+    Parameters
+    ----------
+    filename : str
+        netcdf Enlil post-processed output file
+        Example: evo.earth.nc
+
+    Returns
+    -------
+    enlil.Evolution
+        An Evolution class representing the loaded file.
     """
     ds = xr.load_dataset(filename)
 
@@ -114,7 +129,22 @@ def read_evo(filename):
 
 
 def _calibrate_variable(ds, var):
-    """Calibrates the variable *var* from the dataset *ds*.
+    """Calibrates a variable from the dataset.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing the variable to calibrate.
+    var : str
+        Variable to calibrate.
+
+    Raises
+    ------
+    KeyError
+        If the variable is not in the dataset.
+
+    NOTES
+    -----
     All variables whose names begin with 'uncalibrated' are calibrated
     with the following formula (linear transform):
     var_calibrated=((var_uncalibrated-cal_min) *
@@ -179,7 +209,13 @@ def _calibrate_variable(ds, var):
 
 
 def _transform_dimensions(ds):
-    """Changes dimension names and adds coordinate values."""
+    """Changes dimension names and adds coordinate values.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        The dataset to change dimensions and coordinates of.
+    """
     t0 = np.datetime64(ds.attrs['REFDATE_CAL'])
     ds = ds.assign_coords({'x': ds['x_coord'],
                            'y': ds['y_coord'],
@@ -204,7 +240,13 @@ def _transform_dimensions(ds):
 
 
 def _transform_variable(da):
-    """Transform the variable and add proper attributes and units."""
+    """Transform the variable and add proper attributes and units.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The DataArray to update the units and attributes of.
+    """
 
     # Position validation is coordinate dependent so do those
     # conversions first
@@ -251,6 +293,12 @@ def _transform_variable(da):
 
 
 def _unstack_fieldline(da):
-    """Unstacks the forward/backward field line trace variables"""
+    """Unstacks the forward/backward field line trace variables.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        DataArray with `fld_step` dimension that will be flattened.
+    """
     return xr.concat([da[:, ::-1, 0], da[:, :, 1]],
                      dim='fld_step').rename({'fld_step': 'step'})

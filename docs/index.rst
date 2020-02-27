@@ -1,5 +1,5 @@
 Welcome to enlilviz's documentation!
-======================================
+====================================
 
 .. toctree::
    :maxdepth: 2
