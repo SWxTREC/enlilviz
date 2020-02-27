@@ -12,6 +12,14 @@ enlilviz.plotting.forecaster module
    :undoc-members:
    :show-inheritance:
 
+enlilviz.plotting.plots module
+------------------------------
+
+.. automodule:: enlilviz.plotting.plots
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------
