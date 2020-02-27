@@ -39,6 +39,7 @@ SAT_COLORS = {'Earth': 'tab:green',
 RMIN, RMAX = 0, 1.8
 LATMIN, LATMAX = -60, 60
 
+
 class _BasePlot:
     """A base plotting class for access to generic properties.
 
@@ -341,6 +342,71 @@ class LongitudeSlice(_BasePlot):
         for sat in ['Earth']:
             pos = run.get_satellite_position(sat, self.time)
             self.plot_data[sat].set_data(np.deg2rad(pos[1]), pos[0])
+
+
+class RadialSlice(_BasePlot):
+    """
+    A radial slice plot, which is in longitude-latitude coordinates.
+
+    Parameters
+    ----------
+    var : str
+        Variable to plot (den, vel)
+    """
+
+    def __init__(self, enlil_run, var, ax=None):
+        self.var = var
+        self.ax = plt.subplot(projection='mollweide') if ax is None else ax
+        super().__init__(enlil_run, self.ax)
+
+    def _init_plot(self):
+        """Initialize the axis with all of the plot data."""
+        run = self.enlil_run
+        lon = np.deg2rad(run.lon)
+        lat = np.deg2rad(run.lat)
+
+        # Make the longitude-latitude mesh
+        lon_lat, lat_lon = _mesh_grid(lon, lat)
+
+        ax = self.ax
+        ax.axis('off')
+
+        cmap, norm = CMAP_LOOKUP[self.var]
+        # Need to transpose the data for plotting
+        data = run.get_slice(self.var, 'r', self.time).T
+        mesh = ax.pcolormesh(lon_lat, lat_lon, data,
+                             cmap=cmap, norm=norm,
+                             shading='flat')
+        self.plot_data['mesh'] = mesh
+
+        # Planets and satellites
+        # Coodinates to polar plot are: lon, lat
+        for sat in ['Earth', 'STEREO_A', 'STEREO_B']:
+            pos = run.get_satellite_position(sat, self.time)
+            marker, = ax.plot(np.deg2rad(pos[2]), np.deg2rad(pos[1]), 'o',
+                              color=SAT_COLORS[sat],
+                              markeredgecolor='k', markersize=10, zorder=2)
+            self.plot_data[sat] = marker
+
+        # Specified in degree spacing
+        ax.set_longitude_grid(30)
+        ax.set_latitude_grid(15)
+        # Remove longitude labels
+        ax.xaxis.set_ticklabels([])
+        ax.grid(True)
+        ax.axis('on')
+
+    def update(self):
+        """Update all variable quantities within the plot."""
+        run = self.enlil_run
+        # transpose the data to match the coordinates
+        data = run.get_slice(self.var, 'r', self.time).T
+        self.plot_data['mesh'].set_array(data.values.flatten())
+
+        for sat in ['Earth', 'STEREO_A', 'STEREO_B']:
+            pos = run.get_satellite_position(sat, self.time)
+            self.plot_data[sat].set_data(np.deg2rad(pos[2]),
+                                         np.deg2rad(pos[1]))
 
 
 class TimeSeries(_BasePlot):
