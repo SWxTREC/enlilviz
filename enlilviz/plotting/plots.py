@@ -36,6 +36,8 @@ SAT_COLORS = {'Earth': 'tab:green',
               'STEREO_A': 'tab:red',
               'STEREO_B': 'tab:blue'}
 
+RMIN, RMAX = 0, 1.8
+LATMIN, LATMAX = -60, 60
 
 class _BasePlot:
     """A base plotting class for access to generic properties.
@@ -162,7 +164,7 @@ class _BasePlot:
         outer_pol = run.get_slice('pol', slice_plane, self.time).sel(
             {'r': r[-1]})
         outer_pol = np.ma.masked_where(outer_pol <= 0, np.ones_like(outer_pol))
-        outer_pol *= r[-1]
+        outer_pol *= r[-1] + 0.04
 
         return (inner_pol, outer_pol)
 
@@ -205,10 +207,8 @@ class LatitudeSlice(_BasePlot):
         self.plot_data['mesh'] = mesh
 
         # Polarity lines
-        arc_min, = ax.plot(lon, inner_pol,
-                           c='tab:orange', linewidth=3)
-        arc_max, = ax.plot(lon, outer_pol,
-                           c='tab:orange', linewidth=5)
+        arc_min, = ax.plot(lon, inner_pol, c='tab:orange', lw=2)
+        arc_max, = ax.plot(lon, outer_pol, c='tab:orange', lw=2)
         self.plot_data['pol_min'] = arc_min
         self.plot_data['pol_max'] = arc_max
 
@@ -226,10 +226,21 @@ class LatitudeSlice(_BasePlot):
         # ax.axvline(0., c='k', zorder=1)
         circle_points = np.linspace(0, 2*np.pi)
         ax.plot(circle_points, np.ones(len(circle_points)), c='k',
-                zorder=1)
+                zorder=1, lw=1)
+        theta_ticks = np.linspace(-np.pi/2, 0, 10)
+        rs = (0.975, 1.025)
+        for theta in theta_ticks:
+            ax.plot([theta, theta], rs, c='k', zorder=1, lw=1)
+        # Solid line along theta = 0
+        ax.plot([0, 0], [0, 2], c='k', zorder=1, lw=1)
+        # A bottom tick (marker=3) every 0.1 out to 1.7 AU
+        rticks = np.arange(17)/10
+        for r in rticks:
+            ax.plot(0, r, marker=3, c='k', zorder=1)
+
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_ylim(0, np.max(r))
+        ax.set_ylim(RMIN, RMAX)
 
     def update(self):
         """Update all variable quantities within the plot."""
@@ -283,10 +294,8 @@ class LongitudeSlice(_BasePlot):
         self.plot_data['mesh'] = mesh
 
         # Polarity lines
-        arc_min, = ax.plot(lat, inner_pol, c='tab:orange',
-                           linewidth=3, zorder=3)
-        arc_max, = ax.plot(lat, outer_pol, c='tab:orange',
-                           linewidth=5, zorder=3)
+        arc_min, = ax.plot(lat, inner_pol, c='tab:orange', lw=2)
+        arc_max, = ax.plot(lat, outer_pol, c='tab:orange', lw=2)
         self.plot_data['pol_min'] = arc_min
         self.plot_data['pol_max'] = arc_max
 
@@ -301,8 +310,21 @@ class LongitudeSlice(_BasePlot):
             self.plot_data[sat] = marker
 
         # x == theta, y == r
-        ax.set_xlim(np.min(lat), np.max(lat))
-        ax.set_ylim(0, np.max(r))
+        circle_points = np.linspace(0, 2*np.pi)
+        ax.plot(circle_points, np.ones(len(circle_points)), c='k',
+                zorder=1, lw=1)
+        theta_ticks = np.linspace(-np.pi/2, 0, 10)
+        rs = (0.975, 1.025)
+        for theta in theta_ticks:
+            ax.plot([theta, theta], rs, c='k', zorder=1, lw=1)
+        # Solid line along theta = 0
+        ax.plot([0, 0], [0, 2], c='k', zorder=1, lw=1)
+        # A bottom tick (marker=3) every 0.1 out to 1.7 AU
+        rticks = np.arange(17)/10
+        for r in rticks:
+            ax.plot(0, r, marker=3, c='k', zorder=1)
+        ax.set_xlim(np.deg2rad([LATMIN, LATMAX]))
+        ax.set_ylim(RMIN, RMAX)
         ax.set_yticks([])
 
     def update(self):
@@ -350,7 +372,7 @@ class TimeSeries(_BasePlot):
         ax.text(0.025, 0.75, self.sat.replace('_', ' '),
                 transform=ax.transAxes, zorder=1)
 
-        ax.plot(times, data, c=SAT_COLORS[self.sat])
+        ax.plot(times, data, c=SAT_COLORS[self.sat], lw=2)
         time = self.time.astype(datetime)
         self.plot_data['timeline'] = ax.axvline(time, c='y',
                                                 linewidth=3, zorder=5)
@@ -364,6 +386,13 @@ class TimeSeries(_BasePlot):
         ax.set_xlim(run.times[0], run.times[-1])
         ax.xaxis.set_major_locator(mpl.dates.DayLocator())
         ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%d"))
+        ax.tick_params(axis='both', which='major', direction='in',
+                       length=6, width=1,
+                       top=True, right=True)
+        ax.tick_params(axis='x', which='minor', direction='in',
+                       length=3, width=1,
+                       top=True)
+        ax.xaxis.set_minor_locator(mpl.dates.HourLocator(interval=2))
 
         if self.sat != 'STEREO_B':
             plt.setp(ax.get_xticklabels(), visible=False)
