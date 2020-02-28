@@ -222,6 +222,18 @@ class LatitudeSlice(_BasePlot):
                               color=SAT_COLORS[sat],
                               markeredgecolor='k', markersize=10, zorder=2)
             self.plot_data[sat] = marker
+            # Fieldlines
+            pos = run.get_satellite_fieldline(sat, self.time)
+            mask = np.logical_or(pos[0].values <= RMIN,
+                                 pos[0].values >= RMAX)
+
+            lon_field = np.ma.masked_array(np.deg2rad(pos[2]), mask=mask)
+            r_field = np.ma.masked_array(pos[0], mask=mask)
+
+            line, = ax.plot(lon_field, r_field,
+                            color=SAT_COLORS[sat],
+                            linestyle='-.', zorder=1)
+            self.plot_data[sat + '_fieldline'] = line
 
         # Circle on Earth (1AU)
         # ax.axvline(0., c='k', zorder=1)
@@ -257,6 +269,17 @@ class LatitudeSlice(_BasePlot):
         for sat in ['Earth', 'STEREO_A', 'STEREO_B']:
             pos = run.get_satellite_position(sat, self.time)
             self.plot_data[sat].set_data(np.deg2rad(pos[2]), pos[0])
+
+            # Fieldlines
+            pos = run.get_satellite_fieldline(sat, self.time)
+            mask = np.logical_or(pos[0].values <= RMIN,
+                                 pos[0].values >= RMAX)
+
+            lon_field = np.ma.masked_array(np.deg2rad(pos[2]), mask=mask)
+            r_field = np.ma.masked_array(pos[0], mask=mask)
+
+            self.plot_data[sat + '_fieldline'].set_data(
+                lon_field, r_field)
 
 
 class LongitudeSlice(_BasePlot):
@@ -310,6 +333,19 @@ class LongitudeSlice(_BasePlot):
                               markeredgecolor='k', markersize=10, zorder=2)
             self.plot_data[sat] = marker
 
+            # Fieldlines
+            pos = run.get_satellite_fieldline(sat, self.time)
+            mask = np.logical_or(pos[0].values <= RMIN,
+                                 pos[0].values >= RMAX)
+
+            lat_field = np.ma.masked_array(np.deg2rad(pos[1]), mask=mask)
+            r_field = np.ma.masked_array(pos[0], mask=mask)
+
+            line, = ax.plot(lat_field, r_field,
+                            color=SAT_COLORS[sat],
+                            linestyle='-.', zorder=1)
+            self.plot_data[sat + '_fieldline'] = line
+
         # x == theta, y == r
         circle_points = np.linspace(0, 2*np.pi)
         ax.plot(circle_points, np.ones(len(circle_points)), c='k',
@@ -342,6 +378,16 @@ class LongitudeSlice(_BasePlot):
         for sat in ['Earth']:
             pos = run.get_satellite_position(sat, self.time)
             self.plot_data[sat].set_data(np.deg2rad(pos[1]), pos[0])
+            # Fieldlines
+            pos = run.get_satellite_fieldline(sat, self.time)
+            mask = np.logical_or(pos[0].values <= RMIN,
+                                 pos[0].values >= RMAX)
+
+            lat_field = np.ma.masked_array(np.deg2rad(pos[1]), mask=mask)
+            r_field = np.ma.masked_array(pos[0], mask=mask)
+
+            self.plot_data[sat + '_fieldline'].set_data(
+                lat_field, r_field)
 
 
 class RadialSlice(_BasePlot):

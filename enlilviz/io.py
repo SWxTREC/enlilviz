@@ -250,13 +250,13 @@ def _transform_variable(da):
 
     # Position validation is coordinate dependent so do those
     # conversions first
-    if da.name == 'pos_r':
+    if 'pos_r' in da.name:
         da /= _unit_conversion['AU']
         da.attrs['units'] = 'AU'
-    elif da.name == 'pos_lat':
+    elif 'pos_lat' in da.name:
         da.values = np.rad2deg(np.pi/2 - da)
         da.attrs['units'] = 'degrees_north'
-    elif da.name == 'pos_lon':
+    elif 'pos_lon' in da.name:
         da.values = np.rad2deg(da - np.pi)
         da.attrs['units'] = 'degrees_east'
 
