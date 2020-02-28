@@ -1,8 +1,28 @@
+from tempfile import NamedTemporaryFile
 import pytest
 import numpy as np
 import xarray as xr
 
-from enlilviz.enlil import Enlil, Evolution
+from enlilviz.enlil import Enlil
+from enlilviz import read_evo
+from enlilviz.io import _unit_conversion
+
+# Data scaling
+# Range of variables
+scale_factors = {'den': (0.1, 60),
+                 'temp': (500, 20000),
+                 'cme': (-0.1, 0.1),
+                 'pol': (-1, 1),
+                 'vel': (300, 1200),
+                 'mag': (-20, 20)}
+
+
+def scale_variable(x, var):
+    """Scale the variable to a more sensible range."""
+    xmin, xmax = np.min(x), np.max(x)
+    ymin, ymax = scale_factors[var]
+
+    return (x - xmin) / (xmax - xmin) * (ymax - ymin) + ymin
 
 
 @pytest.fixture
@@ -31,22 +51,6 @@ def enlil_run():
     coord_dict = {'earth_t': earth_t, 't': t,
                   'r': r, 'lat': lat, 'lon': lon,
                   'satellite': satellites, 'step': step}
-
-    # Data scaling
-    # Range of variables
-    scale_factors = {'den': (0.1, 60),
-                     'temp': (500, 20000),
-                     'cme': (-0.1, 0.1),
-                     'pol': (-1, 1),
-                     'vel': (300, 1200),
-                     'mag': (-20, 20)}
-
-    def scale_variable(x, var):
-        """Scale the variable to a more sensible range."""
-        xmin, xmax = np.min(x), np.max(x)
-        ymin, ymax = scale_factors[var]
-
-        return (x - xmin) / (xmax - xmin) * (ymax - ymin) + ymin
 
     # Slices
     def gen_slice_data(shape):
@@ -133,7 +137,42 @@ def enlil_run():
 
 
 @pytest.fixture
-def evolution():
-    """Enlil Evolution xarray Dataset."""
-    ds = None
-    return Evolution(ds)
+def evo():
+    """Creates a test evolution xarray file."""
+    nevo = 20
+
+    gen_data = {1: np.arange(nevo),
+                2: np.sin(np.linspace(0, 2*np.pi, nevo)),
+                3: np.arange(nevo)**2}
+
+    data = {'X1': np.linspace(0.1, 1.7, nevo)*_unit_conversion['AU'],
+            'X2': np.deg2rad(np.linspace(60, 120, nevo)),
+            'X3': np.deg2rad(np.linspace(30, 80, nevo)),
+            'TIME': np.arange(nevo)*60*60*24,
+            'DT': np.arange(nevo),
+            'NSTEP': np.arange(nevo),
+            'D': scale_variable(gen_data[3], 'den')/_unit_conversion['den'],
+            'T': scale_variable(gen_data[2], 'temp'),
+            'V1': scale_variable(gen_data[1], 'vel')/_unit_conversion['vel'],
+            'V2': scale_variable(gen_data[2], 'vel')/_unit_conversion['vel'],
+            'V3': scale_variable(gen_data[3], 'vel')/_unit_conversion['vel'],
+            'B1': scale_variable(gen_data[1], 'mag'),
+            'B2': scale_variable(gen_data[2], 'mag'),
+            'B3': scale_variable(gen_data[3], 'mag'),
+            'DP': np.linspace(0, 0.1, nevo),
+            'BP': np.linspace(-1, 1, nevo)}
+    # Need to make data Arrays for all of the variables with the single dim
+    for x in data:
+        data[x] = xr.DataArray(data[x], dims=['nevo'])
+
+    ds = xr.Dataset(data, coords={'nevo': np.arange(nevo)})
+
+    ds.attrs = {'label': 'earth',
+                'rundate_cal': "2010-01-01T00"}
+
+    with NamedTemporaryFile(suffix='.nc') as f:
+        ds.to_netcdf(f.name)
+
+        evo = read_evo(f.name)
+
+    return evo
