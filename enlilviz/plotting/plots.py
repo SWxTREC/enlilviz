@@ -207,6 +207,12 @@ class LatitudeSlice(_BasePlot):
                              shading='flat')
         self.plot_data['mesh'] = mesh
 
+        # CME Data
+        data = run.get_slice('cme', 'lat', self.time)
+        r_lon, lon_r = np.meshgrid(r, lon)
+        self.plot_data['contour'] = ax.contour(lon_r, r_lon, data,
+                                               levels=[0], colors='k')
+
         # Polarity lines
         arc_min, = ax.plot(lon, inner_pol, c='tab:orange', lw=2)
         arc_max, = ax.plot(lon, outer_pol, c='tab:orange', lw=2)
@@ -246,9 +252,18 @@ class LatitudeSlice(_BasePlot):
     def update(self):
         """Update all variable quantities within the plot."""
         run = self.enlil_run
+        r = run.r
         lon = np.deg2rad(run.lon)
         data = run.get_slice(self.var, 'lat', self.time)
         self.plot_data['mesh'].set_array(data.values.flatten())
+
+        # CME Data
+        data = run.get_slice('cme', 'lat', self.time)
+        r_lon, lon_r = np.meshgrid(r, lon)
+        for level in self.plot_data['contour'].collections:
+            level.remove()
+        self.plot_data['contour'] = self.ax.contour(lon_r, r_lon, data,
+                                                    levels=[0], colors='k')
 
         inner_pol, outer_pol = self._get_polarity_data('lat')
         self.plot_data['pol_min'].set_data(lon, inner_pol)
@@ -294,6 +309,12 @@ class LongitudeSlice(_BasePlot):
                              cmap=cmap, norm=norm, shading='flat')
         self.plot_data['mesh'] = mesh
 
+        # CME Data
+        data = run.get_slice('cme', 'lon', self.time)
+        r_lat, lat_r = np.meshgrid(r, lat)
+        self.plot_data['contour'] = ax.contour(lat_r, r_lat, data,
+                                               levels=[0], colors='k')
+
         # Polarity lines
         arc_min, = ax.plot(lat, inner_pol, c='tab:orange', lw=2)
         arc_max, = ax.plot(lat, outer_pol, c='tab:orange', lw=2)
@@ -331,9 +352,19 @@ class LongitudeSlice(_BasePlot):
     def update(self):
         """Update all variable quantities within the plot."""
         run = self.enlil_run
+        r = run.r
         lat = np.deg2rad(run.lat)
+        r_lat, lat_r = np.meshgrid(r, lat)
+
         data = run.get_slice(self.var, 'lon', self.time)
         self.plot_data['mesh'].set_array(data.values.flatten())
+
+        # CME Data
+        data = run.get_slice('cme', 'lon', self.time)
+        for level in self.plot_data['contour'].collections:
+            level.remove()
+        self.plot_data['contour'] = self.ax.contour(lat_r, r_lat, data,
+                                                    levels=[0], colors='k')
 
         inner_pol, outer_pol = self._get_polarity_data('lon')
         self.plot_data['pol_min'].set_data(lat, inner_pol)
