@@ -48,9 +48,15 @@ def read_enlil2d(filename):
     # Now transform the dimensions and coordinates
     ds = _transform_dimensions(ds)
 
-    # Make a new coordinate, step, for the collapsed +/- fieldline
-    ds = ds.assign_coords({'step': np.concatenate([-ds['fld_step'][::-1],
-                                                   ds['fld_step']+1])})
+    # Are fieldline variables present? Store as a list [False] default
+    # [False, True] if they are present, which helps with the loops
+    # below. Could probably use to be refactored at some point.
+    fieldline_vars = [False]
+    if 'fld_step' in ds:
+        # Make a new coordinate, step, for the collapsed +/- fieldline
+        ds = ds.assign_coords({'step': np.concatenate([-ds['fld_step'][::-1],
+                                                       ds['fld_step']+1])})
+        fieldline_vars += [True]
 
     # Transform and calibrate all of the slices
     slice_variables = ['dd12_3d', 'vv12_3d', 'pp12_3d', 'cc12_3d',
@@ -60,7 +66,7 @@ def read_enlil2d(filename):
         ds = _calibrate_variable(ds, var)
 
     # Now work on the field line and satellite data
-    for fieldline in [False, True]:
+    for fieldline in fieldline_vars:
         for var in _variables:
             name = ''
 
@@ -152,8 +158,14 @@ def _calibrate_variable(ds, var):
     where param_max and param_min are attributes associated with each
     uncalibrated parameter.
     """
-    cal_min = ds.attrs['cal_min']
-    cal_range = ds.attrs['cal_range']
+    if 'cal_min' in ds.attrs:
+        cal_min = ds.attrs['cal_min']
+        cal_range = ds.attrs['cal_range']
+    else:
+        # Calibration information not in the file
+        cal_min = -32768
+        cal_range = 65535
+
     if (var[:4] + '_min' not in ds[var].attrs or
             var[:4] + '_max' not in ds[var].attrs):
         raise KeyError('Variable: ' + var + ' has no calibration ' +
@@ -163,7 +175,7 @@ def _calibrate_variable(ds, var):
     var_max = ds[var].attrs.pop(var[:4] + '_max')
 
     # Linear fit
-    da = ((ds[var] - cal_min) *
+    da = ((ds[var].astype(np.float64) - cal_min) *
           (var_max - var_min) / cal_range + var_min)
 
     # Change to a more descriptive name
@@ -216,12 +228,14 @@ def _transform_dimensions(ds):
     ds : xarray.Dataset
         The dataset to change dimensions and coordinates of.
     """
-    t0 = np.datetime64(ds.attrs['REFDATE_CAL'])
+    t0 = np.datetime64(ds.attrs['REFDATE_CAL'], 's')
+    t = t0 + np.array(ds['time'], np.timedelta64)
+    earth_t = t0 + np.array(ds['Earth_TIME'], np.timedelta64)
     ds = ds.assign_coords({'x': ds['x_coord'],
                            'y': ds['y_coord'],
                            'z': ds['z_coord'],
-                           't': t0 + ds['time'],
-                           'earth_t': t0 + ds['Earth_TIME'],
+                           't': t,
+                           'earth_t': earth_t,
                            'satellite': _satellites,
                            }).drop(['x_coord', 'y_coord', 'z_coord',
                                     'time', 'Earth_TIME'])
