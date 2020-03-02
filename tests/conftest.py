@@ -53,33 +53,35 @@ def enlil_run():
                   'satellite': satellites, 'step': step}
 
     # Slices
-    def gen_slice_data(shape):
-        """Generate fake data.
-        dim1: linear
-        dim2: sinusoidal
-        dim3: quadratic
-        """
-        x = np.arange(shape[0])
-        y = np.sin(np.linspace(0, 2*np.pi, shape[1]))
-        z = np.arange(shape[2])**2
+    """Generate fake data.
+    dim1: linear
+    dim2: sinusoidal
+    dim3: quadratic
+    """
+    x = np.arange(len(r))
+    y = np.sin(np.linspace(0, np.pi, len(lat)))
+    z = np.arange(len(lon))**2
 
-        data = (x[:, np.newaxis, np.newaxis] *
-                y[np.newaxis, :, np.newaxis] *
-                z[np.newaxis, np.newaxis, :])
-        return data
+    data_cube = (x[:, np.newaxis, np.newaxis] +
+                 y[np.newaxis, :, np.newaxis] +
+                 z[np.newaxis, np.newaxis, :])
 
     slice_vars = ['den', 'vel', 'pol', 'cme']
     data_dict = {}
-    data_dims = {'r': (nt, len(lon), len(lat)),
-                 'lat': (nt, len(lon), len(r)),
-                 'lon': (nt, len(lat), len(r))}
     data_labels = {'r': ['t', 'lon', 'lat'],
                    'lat': ['t', 'lon', 'r'],
                    'lon': ['t', 'lat', 'r']}
     for var in slice_vars:
         for pos in positions:
             name = 'slice_' + var + '_' + pos
-            data = gen_slice_data(data_dims[pos])
+            if pos == 'r':
+                data = data_cube[0, :, :].T
+            elif pos == 'lat':
+                data = data_cube[:, 0, :].T
+            elif pos == 'lon':
+                data = data_cube[:, :, 0].T
+            # Add the time dimension
+            data = np.tile(data, (nt, 1, 1))
             data = scale_variable(data, var)
             data_dict[name] = xr.DataArray(data, dims=data_labels[pos])
 
