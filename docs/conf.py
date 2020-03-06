@@ -36,13 +36,15 @@ sys.path.append('..')
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosummary',
               'sphinx.ext.intersphinx',
-              'numpydoc']
+              'sphinx.ext.napoleon']
 
 autosummary_generate = True
 
+napoleon_google_docstring = False
+
 intersphinx_mapping = {
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-    'xarray': ('https://xarray.pydata.org/', None)
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+    'xarray': ('https://xarray.pydata.org/en/stable/', None)
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -106,7 +108,7 @@ html_theme = 'nature'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 
 # -- Options for HTMLHelp output ---------------------------------------
