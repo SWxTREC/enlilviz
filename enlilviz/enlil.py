@@ -1,5 +1,6 @@
 """Main enlil data module."""
 import functools
+import numpy as np
 
 
 def _validate_satellite(func):
@@ -106,7 +107,7 @@ class Enlil:
             varname += '_' + coord
         return self.ds.loc[{'satellite': satellite}][varname]
 
-    def get_slice(self, var, slice_plane, time=None):
+    def get_slice(self, var, slice_plane, time=None, enhance=None):
         """Get a 2D slice of data.
 
         Parameters
@@ -118,6 +119,10 @@ class Enlil:
             Note that a slice in lon, will return data with r/lat coordinates.
         time : datetime-like, optional
             Time of interest. If left out, all times will be returned.
+        enhance : int, optional
+            Enhanced resolution factor to increase the field by through
+            interpolation. enhance = 4 will increase each dimension by a
+            factor of 4, creating a 16x bigger data array.
 
         Returns
         -------
@@ -128,6 +133,21 @@ class Enlil:
         da = self.ds[varname]
         if time is not None:
             da = da.sel({'t': time}, method='nearest')
+
+        # Interpolating the data to a higher resolution
+        if enhance:
+            new_r = np.linspace(self.ds.r[0], self.ds.r[-1],
+                                len(self.ds.r)*enhance)
+            new_lon = np.linspace(self.ds.lon[0], self.ds.lon[-1],
+                                  len(self.ds.lon)*enhance)
+            new_lat = np.linspace(self.ds.lat[0], self.ds.lat[-1],
+                                  len(self.ds.lat)*enhance)
+            if slice_plane == 'r':
+                da = da.interp(lat=new_lat, lon=new_lon)
+            elif slice_plane == 'lat':
+                da = da.interp(r=new_r, lon=new_lon)
+            elif slice_plane == 'lon':
+                da = da.interp(r=new_r, lat=new_lat)
 
         return da
 
