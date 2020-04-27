@@ -36,7 +36,11 @@ sys.path.append('..')
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosummary',
               'sphinx.ext.intersphinx',
-              'sphinx.ext.napoleon']
+              'sphinx.ext.napoleon',
+              'matplotlib.sphinxext.plot_directive']
+
+plot_include_source = True
+plot_formats = ['png']
 
 autosummary_generate = True
 
@@ -171,6 +175,3 @@ texinfo_documents = [
      'One line description of project.',
      'Miscellaneous'),
 ]
-
-
-

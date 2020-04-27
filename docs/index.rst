@@ -7,7 +7,7 @@ Welcome to enlilviz's documentation!
 
    readme
    installation
-   usage
+   examples
    modules
    contributing
    authors
