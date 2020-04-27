@@ -29,6 +29,137 @@ _variables_evo = {'X1': 'pos_r', 'X2': 'pos_lat', 'X3': 'pos_lon',
 _satellites = ['Earth', 'STEREO_A', 'STEREO_B']
 
 
+def load_example():
+    """
+    Loads example data that can be used for demonstration and development.
+
+    Returns
+    -------
+    enlil.Enlil
+        An Enlil class representing the example dataset.
+    """
+    coordinates = ('r', 'lat', 'lon')
+    vars = ('den', 'vel', 'pol', 'cme')
+    satellites = ['Earth', 'STEREO_A', 'STEREO_B']
+    nsat = len(satellites)
+
+    nr = 512
+    r = np.linspace(0.101, 1.698, nr)
+    nlat = 60
+    lat = np.linspace(59, -59, nlat)
+    nlon = 180
+    lon = np.linspace(-179, 179, nlon)
+    # Test functions (r: linear, lat: sin, lon: cos)
+    functions = {'r': lambda x: (x - np.min(r))/(np.max(r) - np.min(r)),
+                 'lat': lambda x: np.abs(np.sin(np.deg2rad(x))),
+                 'lon': lambda x: np.abs(np.cos(np.deg2rad(x)))}
+
+    # Transform to min/max of the specific variable
+    var_range = {'den': (1, 40), 'vel': (300, 800),
+                 'pol': (-1, 1), 'cme': (-5e-24, 5e-24)}
+
+    t1 = np.datetime64('2020-01-01T00:00')
+    t2 = np.datetime64('2020-01-05T00:00')
+    # hourly time series for 4 days
+    t = np.arange(t1, t2, dtype='datetime64[60m]')
+    nt = len(t)
+    # Satellite data is finer resolution
+    earth_t = np.arange(t1, t2, dtype='datetime64[30m]')
+    nt_earth = len(earth_t)
+
+    da_dict = {}
+    for coord in coordinates:
+
+        # Slice variables
+        for var in vars:
+            if coord == 'lon':
+                # t, lat, r
+                dims = ['t', 'lat', 'r']
+                coords = [t, lat, r]
+                data = (functions['r'](r[np.newaxis, np.newaxis, :]) *
+                        functions['lat'](lat[np.newaxis, :, np.newaxis]) *
+                        np.ones(shape=(nt, nlat, nr)))
+            elif coord == 'lat':
+                dims = ['t', 'lon', 'r']
+                coords = [t, lon, r]
+                data = (functions['r'](r[np.newaxis, np.newaxis, :]) *
+                        functions['lon'](lon[np.newaxis, :, np.newaxis]) *
+                        np.ones(shape=(nt, nlon, nr)))
+            else:  # r
+                dims = ['t', 'lon', 'lat']
+                coords = [t, lon, lat]
+                data = (functions['lat'](lat[np.newaxis, np.newaxis, :]) *
+                        functions['lon'](lon[np.newaxis, :, np.newaxis]) *
+                        np.ones(shape=(nt, nlon, nlat)))
+
+            # Transform the data to min/max of the variable range
+            data = ((data - np.min(data)) / (np.max(data) - np.min(data)) *
+                    (var_range[var][1] - var_range[var][0]) +
+                    var_range[var][0])
+
+            da = xr.DataArray(data=data, dims=dims, coords=coords,
+                              name=f'slice_{var}_{coord}')
+            da_dict[da.name] = da
+
+        # Time series at satellites
+        dims = ['satellite', 'earth_t']
+        coords = [satellites, earth_t]
+
+        # Position
+        data = np.ones(shape=(nsat, nt_earth))
+        if coord == 'lat':
+            data[0, :] = 3
+            data[1, :] = -3
+            data[2, :] = 8
+        elif coord == 'lon':
+            # Make the STEREO satellites be perpendicular to Earth
+            data[1, :] = -90
+            data[2, :] = 90
+
+        da_dict[f'pos_{coord}'] = xr.DataArray(data=data, dims=dims,
+                                               coords=coords)
+
+        # Velocity
+        data = np.ones(shape=(nsat, nt_earth))
+        if coord == 'r':
+            data *= np.linspace(*var_range['vel'], nt_earth)[np.newaxis, :]
+
+        da_dict[f'vel_{coord}'] = xr.DataArray(data=data, dims=dims,
+                                               coords=coords)
+
+    # non-coordinate data
+
+    # Density
+    data = np.ones(shape=(nsat, nt_earth))
+    data *= np.linspace(*var_range['den'], nt_earth)[np.newaxis, :]
+    da_dict['den'] = xr.DataArray(data=data, dims=dims,
+                                  coords=coords)
+
+    # temp
+    data = np.ones(shape=(nsat, nt_earth))
+    data *= np.linspace(8000, 20000, nt_earth)[np.newaxis, :]
+    da_dict['temp'] = xr.DataArray(data=data, dims=dims,
+                                   coords=coords)
+
+    # cme
+    data = np.ones(shape=(nsat, nt_earth))
+    data *= np.linspace(*var_range['cme'], nt_earth)[np.newaxis, :]
+    da_dict['cme'] = xr.DataArray(data=data, dims=dims,
+                                  coords=coords)
+
+    # pol
+    data = np.ones(shape=(nsat, nt_earth))
+    data *= np.linspace(*var_range['pol'], nt_earth)[np.newaxis, :]
+    da_dict['pol'] = xr.DataArray(data=data, dims=dims,
+                                  coords=coords)
+
+    ds = xr.Dataset(da_dict)
+    ds.attrs = {'enlil_version': 'Example',
+                'wsa_version': 'Example',
+                'model_run_id': 1}
+    return Enlil(ds)
+
+
 def read_enlil2d(filename):
     """Load a 2D post-processed Enlil file into an Enlil object.
 
