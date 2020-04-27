@@ -111,7 +111,11 @@ def read_evo(filename):
     ds = xr.load_dataset(filename)
 
     # Change the dimension to time
-    t0 = np.datetime64(ds.attrs['rundate_cal'], 's')
+    # Depending on which version, the key could be rundate or refdate
+    try:
+        t0 = np.datetime64(ds.attrs['rundate_cal'], 's')
+    except KeyError:
+        t0 = np.datetime64(ds.attrs['refdate_cal'], 's')
     time = t0 + np.array(ds['TIME'], np.timedelta64)
     ds = ds.rename({'nevo': 'earth_t'}).assign_coords({'earth_t': time})
     ds = ds.drop(['TIME', 'DT', 'NSTEP'])
