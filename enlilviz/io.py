@@ -194,7 +194,11 @@ def read_enlil2d(filename):
                        'dd13_3d', 'vv13_3d', 'pp13_3d', 'cc13_3d',
                        'dd23_3d', 'vv23_3d', 'pp23_3d', 'cc23_3d']
     for var in slice_variables:
-        ds = _calibrate_variable(ds, var)
+        try:
+            ds = _calibrate_variable(ds, var)
+        except KeyError:
+            # Ignore if the variable wasn't found in the dataset
+            pass
 
     # Now work on the field line and satellite data
     for fieldline in fieldline_vars:
@@ -212,9 +216,13 @@ def read_enlil2d(filename):
                 ds = ds.drop([sat + '_FLD_' + var for sat in _satellites])
                 name += 'fld_'
             else:
-                da = xr.concat([ds[sat + '_' + var] for sat in _satellites],
-                               dim='satellite')
-                ds = ds.drop([sat + '_' + var for sat in _satellites])
+                try:
+                    da = xr.concat([ds[sat + '_' + var] for sat in _satellites],
+                                dim='satellite')
+                    ds = ds.drop([sat + '_' + var for sat in _satellites])
+                except KeyError:
+                    # If the variable isn't here, continue the loop
+                    continue
 
             name += _variables[var]
             da.name = name
