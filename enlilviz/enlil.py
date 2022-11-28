@@ -106,6 +106,31 @@ class Enlil:
             varname += '_' + coord
         return self.ds.loc[{'satellite': satellite}][varname]
 
+    @_validate_satellite
+    def get_satellite_fieldline(self, satellite, time):
+        """Returns the position of the fieldline passing through the satellite.
+
+        Parameters
+        ----------
+        satellite : str
+            Satellite of interest.
+        time : datetime-like
+            Time of interest. Looks for nearest time.
+
+        Returns
+        -------
+        r : float
+            Radial positions of the fieldline (AU)
+        lat : float
+            Latitudinal positions of the fieldline (deg).
+        lon : float
+            Longitudinal positions of the fieldline (deg).
+        """
+        # Fieldlines are index based on 't' not 'earth_t'
+        ds = self.ds.sel({'t': time}, method='nearest')
+        ds = ds.loc[{'satellite': satellite}]
+        return (ds['fld_pos_r'], ds['fld_pos_lat'], ds['fld_pos_lon'])
+
     def get_slice(self, var, slice_plane, time=None):
         """Get a 2D slice of data.
 
