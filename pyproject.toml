@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "setuptools >= 48.0.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enlilviz"
+version = "0.2.0"
+description = "A Python package for visualizing output from the Enlil code."
+authors = [
+    {name = "Greg Lucas", email="greg.lucas@lasp.colorado.edu"},
+]
+license = {file = "LICENSE"}
+readme = "README.rst"
+requires-python = ">=3.8"
+
+keywords = ["Enlil", "Visualization"]
+
+classifiers = [
+    'Development Status :: 2 - Pre-Alpha',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+
+]
+
+dependencies = [
+    "numpy", "matplotlib", "xarray", "netcdf4"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=3",
+]
+
+[project.urls]
+homepage = "https://github.com/SWxTREC/enlilviz"
+documentation = "https://enlilviz.readthedocs.io"
+repository = "https://github.com/SWxTREC/enlilviz"

@@ -1,4 +1,6 @@
+import os
 from tempfile import NamedTemporaryFile
+
 import pytest
 import numpy as np
 import xarray as xr
@@ -172,9 +174,11 @@ def evo():
     ds.attrs = {'label': 'earth',
                 'rundate_cal': "2010-01-01T00"}
 
-    with NamedTemporaryFile(suffix='.nc') as f:
+    with NamedTemporaryFile(suffix='.nc', delete=False) as f:
         ds.to_netcdf(f.name)
 
         evo = read_evo(f.name)
+        f.close()
+        os.unlink(f.name)
 
     return evo
