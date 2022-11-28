@@ -180,8 +180,9 @@ class LatitudeSlice(_BasePlot):
         Variable to plot (den, vel)
     """
 
-    def __init__(self, enlil_run, var, ax=None):
+    def __init__(self, enlil_run, var, enhance=None, ax=None):
         self.var = var
+        self.enhance = enhance
         self.ax = plt.subplot(projection='polar') if ax is None else ax
         super().__init__(enlil_run, self.ax)
 
@@ -191,9 +192,6 @@ class LatitudeSlice(_BasePlot):
         r = run.r
         lon = np.deg2rad(run.lon)
 
-        # Make the longitude-radial mesh
-        r_lon, lon_r = _mesh_grid(r, lon)
-
         # Get the polarity data
         inner_pol, outer_pol = self._get_polarity_data('lat')
 
@@ -201,7 +199,10 @@ class LatitudeSlice(_BasePlot):
         ax.axis('off')
 
         cmap, norm = CMAP_LOOKUP[self.var]
-        data = run.get_slice(self.var, 'lat', self.time)
+        data = run.get_slice(self.var, 'lat', self.time, self.enhance)
+        # Make the longitude-radial mesh
+        r_lon, lon_r = _mesh_grid(data.r, np.deg2rad(data.lon))
+
         mesh = ax.pcolormesh(lon_r, r_lon, data,
                              cmap=cmap, norm=norm,
                              shading='flat')
@@ -247,7 +248,7 @@ class LatitudeSlice(_BasePlot):
         """Update all variable quantities within the plot."""
         run = self.enlil_run
         lon = np.deg2rad(run.lon)
-        data = run.get_slice(self.var, 'lat', self.time)
+        data = run.get_slice(self.var, 'lat', self.time, self.enhance)
         self.plot_data['mesh'].set_array(data.values.flatten())
 
         inner_pol, outer_pol = self._get_polarity_data('lat')
@@ -268,8 +269,9 @@ class LongitudeSlice(_BasePlot):
         Variable to plot (den, vel)
     """
 
-    def __init__(self, enlil_run, var, ax=None):
+    def __init__(self, enlil_run, var, enhance=None, ax=None):
         self.var = var
+        self.enhance = enhance
         self.ax = plt.subplot(projection='polar') if ax is None else ax
         super().__init__(enlil_run, self.ax)
 
@@ -279,9 +281,6 @@ class LongitudeSlice(_BasePlot):
         r = run.r
         lat = np.deg2rad(run.lat)
 
-        # Make the longitude-radial mesh
-        r_lat, lat_r = _mesh_grid(r, lat)
-
         # Get the polarity data
         inner_pol, outer_pol = self._get_polarity_data('lon')
 
@@ -289,7 +288,9 @@ class LongitudeSlice(_BasePlot):
         ax.axis('off')
 
         cmap, norm = CMAP_LOOKUP[self.var]
-        data = run.get_slice(self.var, 'lon', self.time)
+        data = run.get_slice(self.var, 'lon', self.time, self.enhance)
+        # Make the longitude-radial mesh
+        r_lat, lat_r = _mesh_grid(data.r, np.deg2rad(data.lat))
         mesh = ax.pcolormesh(lat_r, r_lat, data,
                              cmap=cmap, norm=norm, shading='flat')
         self.plot_data['mesh'] = mesh
@@ -332,7 +333,7 @@ class LongitudeSlice(_BasePlot):
         """Update all variable quantities within the plot."""
         run = self.enlil_run
         lat = np.deg2rad(run.lat)
-        data = run.get_slice(self.var, 'lon', self.time)
+        data = run.get_slice(self.var, 'lon', self.time, self.enhance)
         self.plot_data['mesh'].set_array(data.values.flatten())
 
         inner_pol, outer_pol = self._get_polarity_data('lon')
@@ -354,26 +355,24 @@ class RadialSlice(_BasePlot):
         Variable to plot (den, vel)
     """
 
-    def __init__(self, enlil_run, var, ax=None):
+    def __init__(self, enlil_run, var, enhance=None, ax=None):
         self.var = var
+        self.enhance = enhance
         self.ax = plt.subplot(projection='mollweide') if ax is None else ax
         super().__init__(enlil_run, self.ax)
 
     def _init_plot(self):
         """Initialize the axis with all of the plot data."""
         run = self.enlil_run
-        lon = np.deg2rad(run.lon)
-        lat = np.deg2rad(run.lat)
-
-        # Make the longitude-latitude mesh
-        lon_lat, lat_lon = _mesh_grid(lon, lat)
-
         ax = self.ax
         ax.axis('off')
 
         cmap, norm = CMAP_LOOKUP[self.var]
         # Need to transpose the data for plotting
-        data = run.get_slice(self.var, 'r', self.time).T
+        data = run.get_slice(self.var, 'r', self.time, enhance=self.enhance).T
+        # Make the longitude-latitude mesh
+        lon_lat, lat_lon = _mesh_grid(np.deg2rad(data.lon),
+                                      np.deg2rad(data.lat))
         mesh = ax.pcolormesh(lon_lat, lat_lon, data,
                              cmap=cmap, norm=norm,
                              shading='flat')
@@ -400,7 +399,7 @@ class RadialSlice(_BasePlot):
         """Update all variable quantities within the plot."""
         run = self.enlil_run
         # transpose the data to match the coordinates
-        data = run.get_slice(self.var, 'r', self.time).T
+        data = run.get_slice(self.var, 'r', self.time, enhance=self.enhance).T
         self.plot_data['mesh'].set_array(data.values.flatten())
 
         for sat in ['Earth', 'STEREO_A', 'STEREO_B']:
