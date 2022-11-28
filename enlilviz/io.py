@@ -213,13 +213,13 @@ def read_enlil2d(filename):
                 da = xr.concat([_unstack_fieldline(ds[sat + '_FLD_' + var])
                                 for sat in _satellites],
                                dim='satellite')
-                ds = ds.drop([sat + '_FLD_' + var for sat in _satellites])
+                ds = ds.drop_vars([sat + '_FLD_' + var for sat in _satellites])
                 name += 'fld_'
             else:
                 try:
                     da = xr.concat([ds[sat + '_' + var] for sat in _satellites],
                                 dim='satellite')
-                    ds = ds.drop([sat + '_' + var for sat in _satellites])
+                    ds = ds.drop_vars([sat + '_' + var for sat in _satellites])
                 except KeyError:
                     # If the variable isn't here, continue the loop
                     continue
@@ -257,7 +257,7 @@ def read_evo(filename):
         t0 = np.datetime64(ds.attrs['refdate_cal'], 's')
     time = t0 + np.array(ds['TIME'], np.timedelta64)
     ds = ds.rename({'nevo': 'earth_t'}).assign_coords({'earth_t': time})
-    ds = ds.drop(['TIME', 'DT', 'NSTEP'])
+    ds = ds.drop_vars(['TIME', 'DT', 'NSTEP'])
 
     for var in _variables_evo:
         if var not in ds:
@@ -271,7 +271,7 @@ def read_evo(filename):
         # Unit conversions
         da = _transform_variable(da)
         ds[name] = da
-        ds = ds.drop(var)
+        ds = ds.drop_vars(var)
         ds.attrs['name'] = ds.label
 
     return Evolution(ds)
@@ -359,7 +359,7 @@ def _calibrate_variable(ds, var):
     # Update the name of the data array
     da.name = name
     ds[name] = da
-    ds = ds.drop(var)
+    ds = ds.drop_vars(var)
     return ds
 
 
@@ -380,8 +380,8 @@ def _transform_dimensions(ds):
                            't': t,
                            'earth_t': earth_t,
                            'satellite': _satellites,
-                           }).drop(['x_coord', 'y_coord', 'z_coord',
-                                    'time', 'Earth_TIME'])
+                           }).drop_vars(['x_coord', 'y_coord', 'z_coord',
+                                         'time', 'Earth_TIME'])
 
     ds['x'] = ds['x'] / _unit_conversion['AU']
     ds['x'].attrs = {'long_name': 'radial cell positions',
